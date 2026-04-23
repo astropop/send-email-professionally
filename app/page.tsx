@@ -20,7 +20,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Send, RotateCcw } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Send, RotateCcw, Lock, Eye, EyeOff } from "lucide-react"
 
 const LANGUAGES = [
   { value: "vi", label: "Tiếng Việt" },
@@ -33,11 +34,30 @@ const LANGUAGES = [
   { value: "zh", label: "中文" },
 ]
 
+const CORRECT_PASSWORD = "admin123"
+
 export default function EmailForm() {
-  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
+  const [isUnlocked, setIsUnlocked] = useState(false)
+
+  const [senderEmail, setSenderEmail] = useState("")
+  const [recipientEmail, setRecipientEmail] = useState("")
   const [language, setLanguage] = useState("")
   const [content, setContent] = useState("")
   const [submitted, setSubmitted] = useState(false)
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password === CORRECT_PASSWORD) {
+      setPasswordError("")
+      setIsUnlocked(true)
+    } else {
+      setPasswordError("Mật khẩu không đúng. Vui lòng thử lại.")
+      setPassword("")
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,10 +65,15 @@ export default function EmailForm() {
   }
 
   const handleReset = () => {
-    setEmail("")
+    setSenderEmail("")
+    setRecipientEmail("")
     setLanguage("")
     setContent("")
     setSubmitted(false)
+    setIsUnlocked(false)
+    setPassword("")
+    setPasswordError("")
+    setShowPassword(false)
   }
 
   if (submitted) {
@@ -61,23 +86,29 @@ export default function EmailForm() {
             </div>
             <CardTitle className="text-2xl">Email đã được gửi!</CardTitle>
             <CardDescription>
-              Email đã được gửi thành công đến{" "}
-              <span className="font-medium text-foreground">{email}</span>.
+              Email gửi đến{" "}
+              <span className="font-medium text-foreground">{recipientEmail}</span>{" "}
+              thành công.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Người nhận</span>
-              <span className="font-medium text-right truncate">{email}</span>
+              <span className="text-muted-foreground">Người gửi</span>
+              <span className="font-medium text-right truncate">{senderEmail}</span>
             </div>
-            <div className="border-t" />
+            <Separator />
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Người nhận</span>
+              <span className="font-medium text-right truncate">{recipientEmail}</span>
+            </div>
+            <Separator />
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Ngôn ngữ</span>
               <span className="font-medium">
                 {LANGUAGES.find((l) => l.value === language)?.label ?? language}
               </span>
             </div>
-            <div className="border-t" />
+            <Separator />
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground">Nội dung</span>
               <p className="text-foreground whitespace-pre-wrap break-words">{content}</p>
@@ -104,20 +135,89 @@ export default function EmailForm() {
           </CardDescription>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={isUnlocked ? handleSubmit : handlePasswordSubmit}>
           <CardContent className="space-y-5">
-            {/* Email */}
+
+            {/* Password section */}
             <div className="space-y-2">
-              <Label htmlFor="email">
+              <Label htmlFor="password" className="flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5" />
+                Mật khẩu xác thực
+                <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Nhập mật khẩu để mở khoá..."
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (passwordError) setPasswordError("")
+                  }}
+                  disabled={isUnlocked}
+                  required
+                  className="pr-10"
+                  aria-describedby={passwordError ? "password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  disabled={isUnlocked}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {passwordError && (
+                <p id="password-error" className="text-xs text-destructive">
+                  {passwordError}
+                </p>
+              )}
+              {isUnlocked && (
+                <p className="text-xs text-muted-foreground">
+                  Xác thực thành cong. Email người gửi đã được mở khoá.
+                </p>
+              )}
+            </div>
+
+            {/* Sender Email — only shown when unlocked */}
+            {isUnlocked && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label htmlFor="sender-email">
+                    Email người gửi{" "}
+                    <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
+                  <Input
+                    id="sender-email"
+                    type="email"
+                    placeholder="sender@domain.com"
+                    value={senderEmail}
+                    onChange={(e) => setSenderEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            {/* Recipient Email */}
+            <div className="space-y-2">
+              <Label htmlFor="recipient-email">
                 Email người nhận{" "}
                 <span className="text-destructive" aria-hidden="true">*</span>
               </Label>
               <Input
-                id="email"
+                id="recipient-email"
                 type="email"
-                placeholder="example@domain.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="recipient@domain.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
@@ -129,11 +229,7 @@ export default function EmailForm() {
                 Ngôn ngữ{" "}
                 <span className="text-destructive" aria-hidden="true">*</span>
               </Label>
-              <Select
-                value={language}
-                onValueChange={setLanguage}
-                required
-              >
+              <Select value={language} onValueChange={setLanguage} required>
                 <SelectTrigger id="language" className="w-full">
                   <SelectValue placeholder="Chọn ngôn ngữ..." />
                 </SelectTrigger>
@@ -169,22 +265,31 @@ export default function EmailForm() {
           </CardContent>
 
           <CardFooter className="flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={handleReset}
-            >
-              Xóa trắng
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 gap-2"
-              disabled={!email || !language || !content}
-            >
-              <Send className="h-4 w-4" />
-              Gửi email
-            </Button>
+            {!isUnlocked ? (
+              <Button type="submit" className="w-full gap-2" disabled={!password}>
+                <Lock className="h-4 w-4" />
+                Xác thực mật khẩu
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleReset}
+                >
+                  Xóa trắng
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 gap-2"
+                  disabled={!senderEmail || !recipientEmail || !language || !content}
+                >
+                  <Send className="h-4 w-4" />
+                  Gửi email
+                </Button>
+              </>
+            )}
           </CardFooter>
         </form>
       </Card>
