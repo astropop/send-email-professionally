@@ -31,11 +31,17 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
 import { Send, RotateCcw, Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
 
-const CORRECT_PASSWORD = "admin123"
+const ACCOUNTS: Record<string, string> = {
+  admin123: "admin@abc.com",
+  user123:  "user@abc.com",
+}
+
+// ─── Language list ────────────────────────────────────────────────────────────
 
 const LANGUAGES = [
   { value: "vi", label: "Tiếng Việt" },
@@ -50,18 +56,25 @@ const LANGUAGES = [
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
+const validPasswords = Object.keys(ACCOUNTS)
+
 const passwordSchema = z.object({
   password: z
     .string()
     .min(1, "Vui lòng nhập mật khẩu.")
-    .refine((val) => val === CORRECT_PASSWORD, "Mật khẩu không đúng. Vui lòng thử lại."),
+    .refine((val) => validPasswords.includes(val), "Mật khẩu không đúng. Vui lòng thử lại."),
 })
 
 const emailSchema = z.object({
-  senderEmail: z.string().min(1, "Vui lòng nhập email người gửi.").email("Email người gửi không hợp lệ."),
-  recipientEmail: z.string().min(1, "Vui lòng nhập email người nhận.").email("Email người nhận không hợp lệ."),
+  recipientEmail: z
+    .string()
+    .min(1, "Vui lòng nhập email người nhận.")
+    .email("Email người nhận không hợp lệ."),
   language: z.string().min(1, "Vui lòng chọn ngôn ngữ."),
-  content: z.string().min(1, "Vui lòng nhập nội dung email.").max(5000, "Nội dung không được vượt quá 5000 ký tự."),
+  content: z
+    .string()
+    .min(1, "Vui lòng nhập nội dung email.")
+    .max(5000, "Nội dung không được vượt quá 5000 ký tự."),
 })
 
 type PasswordValues = z.infer<typeof passwordSchema>
@@ -71,9 +84,9 @@ type EmailValues = z.infer<typeof emailSchema>
 
 export default function EmailForm() {
   const [showPassword, setShowPassword] = useState(false)
-  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [senderEmail, setSenderEmail] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const [submittedData, setSubmittedData] = useState<EmailValues | null>(null)
+  const [submittedData, setSubmittedData] = useState<(EmailValues & { senderEmail: string }) | null>(null)
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -82,25 +95,23 @@ export default function EmailForm() {
 
   const emailForm = useForm<EmailValues>({
     resolver: zodResolver(emailSchema),
-    defaultValues: {
-      senderEmail: "",
-      recipientEmail: "",
-      language: "",
-      content: "",
-    },
+    defaultValues: { recipientEmail: "", language: "", content: "" },
   })
 
-  const onPasswordSubmit = (_values: PasswordValues) => {
-    setIsUnlocked(true)
+  const isUnlocked = senderEmail !== null
+
+  const onPasswordSubmit = (values: PasswordValues) => {
+    setSenderEmail(ACCOUNTS[values.password])
   }
 
   const onEmailSubmit = (values: EmailValues) => {
-    setSubmittedData(values)
+    if (!senderEmail) return
+    setSubmittedData({ ...values, senderEmail })
     setSubmitted(true)
   }
 
   const handleReset = () => {
-    setIsUnlocked(false)
+    setSenderEmail(null)
     setSubmitted(false)
     setSubmittedData(null)
     setShowPassword(false)
@@ -109,9 +120,9 @@ export default function EmailForm() {
   }
 
   const watchedPassword = passwordForm.watch("password")
-  const watchedContent = emailForm.watch("content")
+  const watchedContent  = emailForm.watch("content")
 
-  // ─── Success Screen ─────────────────────────────────────────────────────────
+  // ─── Success Screen ──────────────────────────────────────────────────────────
 
   if (submitted && submittedData) {
     return (
@@ -162,7 +173,7 @@ export default function EmailForm() {
     )
   }
 
-  // ─── Main Form ──────────────────────────────────────────────────────────────
+  // ─── Main Form ───────────────────────────────────────────────────────────────
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
@@ -176,13 +187,13 @@ export default function EmailForm() {
               Xác thực mật khẩu
             </CardTitle>
             <CardDescription>
-              Nhập mật khẩu để mở khoá ô email người gửi.
+              Nhập mật khẩu để xác định email người gửi.
             </CardDescription>
           </CardHeader>
 
           <Form {...passwordForm}>
             <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <FormField
                   control={passwordForm.control}
                   name="password"
@@ -213,9 +224,7 @@ export default function EmailForm() {
                             className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-40"
                             aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                           >
-                            {showPassword
-                              ? <EyeOff className="h-4 w-4" />
-                              : <Eye className="h-4 w-4" />}
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                         <Button
@@ -223,21 +232,25 @@ export default function EmailForm() {
                           disabled={isUnlocked || !watchedPassword}
                           className="shrink-0 gap-1.5"
                         >
-                          {isUnlocked
-                            ? <><CheckCircle className="h-4 w-4" />Đã xác thực</>
-                            : <><Lock className="h-4 w-4" />Xác thực</>
-                          }
+                          {isUnlocked ? (
+                            <><CheckCircle className="h-4 w-4" />Đã xác thực</>
+                          ) : (
+                            <><Lock className="h-4 w-4" />Xác thực</>
+                          )}
                         </Button>
                       </div>
                       <FormMessage />
-                      {isUnlocked && (
-                        <p className="text-xs text-muted-foreground pt-0.5">
-                          Xác thực thành công. Email người gửi đã được mở khoá.
-                        </p>
-                      )}
                     </FormItem>
                   )}
                 />
+
+                {/* Hiển thị email người gửi sau khi xác thực */}
+                {isUnlocked && (
+                  <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Email người gửi</span>
+                    <Badge variant="secondary">{senderEmail}</Badge>
+                  </div>
+                )}
               </CardContent>
             </form>
           </Form>
@@ -248,41 +261,15 @@ export default function EmailForm() {
           <CardHeader>
             <CardTitle className="text-xl tracking-tight">Soạn email</CardTitle>
             <CardDescription>
-              Điền thông tin bên dưới để gửi email đến người nhận.
+              {isUnlocked
+                ? "Điền thông tin bên dưới để gửi email đến người nhận."
+                : "Xác thực mật khẩu ở trên để bắt đầu soạn email."}
             </CardDescription>
           </CardHeader>
 
           <Form {...emailForm}>
             <form onSubmit={emailForm.handleSubmit(onEmailSubmit)}>
               <CardContent className="space-y-4">
-
-                {/* Sender Email */}
-                <FormField
-                  control={emailForm.control}
-                  name="senderEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email người gửi</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="email"
-                          placeholder="sender@domain.com"
-                          disabled={!isUnlocked}
-                          autoComplete="email"
-                        />
-                      </FormControl>
-                      {!isUnlocked && (
-                        <p className="text-xs text-muted-foreground">
-                          Xác thực mật khẩu ở trên để nhập email người gửi.
-                        </p>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
 
                 {/* Recipient Email */}
                 <FormField
@@ -296,6 +283,7 @@ export default function EmailForm() {
                           {...field}
                           type="email"
                           placeholder="recipient@domain.com"
+                          disabled={!isUnlocked}
                           autoComplete="email"
                         />
                       </FormControl>
@@ -311,7 +299,11 @@ export default function EmailForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Ngôn ngữ</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={!isUnlocked}
+                      >
                         <FormControl>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Chọn ngôn ngữ..." />
@@ -342,6 +334,7 @@ export default function EmailForm() {
                           {...field}
                           placeholder="Nhập nội dung email của bạn tại đây..."
                           rows={6}
+                          disabled={!isUnlocked}
                           className="resize-y"
                         />
                       </FormControl>
@@ -366,7 +359,7 @@ export default function EmailForm() {
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Xóa trắng
                 </Button>
-                <Button type="submit" className="flex-1 gap-2">
+                <Button type="submit" disabled={!isUnlocked} className="flex-1 gap-2">
                   <Send className="h-4 w-4" />
                   Gửi email
                 </Button>
