@@ -36,9 +36,16 @@ import { Send, RotateCcw, Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
 
 // ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
 
-const ACCOUNTS: Record<string, string> = {
-  admin123: "admin@abc.com",
-  user123:  "user@abc.com",
+type UserType = "premium" | "free"
+
+interface AccountConfig {
+  email: string
+  type: UserType
+}
+
+const ACCOUNTS: Record<string, AccountConfig> = {
+  admin123: { email: "admin@abc.com", type: "premium" },
+  user123:  { email: "user@abc.com",  type: "free"    },
 }
 
 // ─── Language list ────────────────────────────────────────────────────────────
@@ -78,15 +85,21 @@ const emailSchema = z.object({
 })
 
 type PasswordValues = z.infer<typeof passwordSchema>
-type EmailValues = z.infer<typeof emailSchema>
+type EmailValues   = z.infer<typeof emailSchema>
+
+interface SubmittedData extends EmailValues {
+  senderEmail: string
+  userType: UserType
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EmailForm() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [senderEmail, setSenderEmail] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
-  const [submittedData, setSubmittedData] = useState<(EmailValues & { senderEmail: string }) | null>(null)
+  const [showPassword, setShowPassword]   = useState(false)
+  const [account, setAccount]             = useState<AccountConfig | null>(null)
+  // preview: null = chưa gửi, object = đang xem trước (premium), "sent" = đã gửi
+  const [preview, setPreview]             = useState<SubmittedData | null>(null)
+  const [sent, setSent]                   = useState(false)
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -98,33 +111,48 @@ export default function EmailForm() {
     defaultValues: { recipientEmail: "", language: "", content: "" },
   })
 
-  const isUnlocked = senderEmail !== null
+  const isUnlocked     = account !== null
+  const watchedPassword = passwordForm.watch("password")
+  const watchedContent  = emailForm.watch("content")
 
   const onPasswordSubmit = (values: PasswordValues) => {
-    setSenderEmail(ACCOUNTS[values.password])
+    setAccount(ACCOUNTS[values.password])
   }
 
   const onEmailSubmit = (values: EmailValues) => {
-    if (!senderEmail) return
-    setSubmittedData({ ...values, senderEmail })
-    setSubmitted(true)
+    if (!account) return
+    const data: SubmittedData = { ...values, senderEmail: account.email, userType: account.type }
+
+    if (account.type === "premium") {
+      // Hiện màn hình xem trước, chưa gửi
+      setPreview(data)
+    } else {
+      // free: gửi luôn
+      setPreview(data)
+      setSent(true)
+    }
+  }
+
+  const handleConfirmSend = () => {
+    setSent(true)
   }
 
   const handleReset = () => {
-    setSenderEmail(null)
-    setSubmitted(false)
-    setSubmittedData(null)
+    setAccount(null)
+    setPreview(null)
+    setSent(false)
     setShowPassword(false)
     passwordForm.reset()
     emailForm.reset()
   }
 
-  const watchedPassword = passwordForm.watch("password")
-  const watchedContent  = emailForm.watch("content")
+  const handleBackToEdit = () => {
+    setPreview(null)
+  }
 
-  // ─── Success Screen ──────────────────────────────────────────────────────────
+  // ─── Màn hình đã gửi ─────────────────────────────────────────────────────────
 
-  if (submitted && submittedData) {
+  if (sent && preview) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
         <Card className="w-full max-w-lg">
@@ -135,37 +163,97 @@ export default function EmailForm() {
             <CardTitle className="text-2xl">Email đã được gửi!</CardTitle>
             <CardDescription>
               Email gửi đến{" "}
-              <span className="font-medium text-foreground">{submittedData.recipientEmail}</span>{" "}
+              <span className="font-medium text-foreground">{preview.recipientEmail}</span>{" "}
               thành công.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Người gửi</span>
-              <span className="font-medium text-right truncate">{submittedData.senderEmail}</span>
+              <span className="font-medium text-right truncate">{preview.senderEmail}</span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Người nhận</span>
-              <span className="font-medium text-right truncate">{submittedData.recipientEmail}</span>
+              <span className="font-medium text-right truncate">{preview.recipientEmail}</span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">Ngôn ngữ</span>
               <span className="font-medium">
-                {LANGUAGES.find((l) => l.value === submittedData.language)?.label}
+                {LANGUAGES.find((l) => l.value === preview.language)?.label}
               </span>
             </div>
             <Separator />
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground">Nội dung</span>
-              <p className="text-foreground whitespace-pre-wrap break-words">{submittedData.content}</p>
+              <p className="text-foreground whitespace-pre-wrap break-words">{preview.content}</p>
             </div>
           </CardContent>
           <CardFooter className="mt-2">
             <Button variant="outline" className="w-full gap-2" onClick={handleReset}>
               <RotateCcw className="h-4 w-4" />
               Gửi email khác
+            </Button>
+          </CardFooter>
+        </Card>
+      </main>
+    )
+  }
+
+  // ─── Màn hình xem trước (premium) ────────────────────────────────────────────
+
+  if (preview && !sent) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl tracking-tight">Xem trước email</CardTitle>
+              <Badge variant="secondary">Premium</Badge>
+            </div>
+            <CardDescription>
+              Kiểm tra lại nội dung trước khi gửi đi.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 rounded-lg border bg-muted/50 p-4 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Người gửi</span>
+              <span className="font-medium text-right truncate">{preview.senderEmail}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Người nhận</span>
+              <span className="font-medium text-right truncate">{preview.recipientEmail}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Ngôn ngữ</span>
+              <span className="font-medium">
+                {LANGUAGES.find((l) => l.value === preview.language)?.label}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground">Nội dung</span>
+              <p className="text-foreground whitespace-pre-wrap break-words">{preview.content}</p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex gap-3 mt-2">
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={handleBackToEdit}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Sửa lại
+            </Button>
+            <Button
+              className="flex-1 gap-2"
+              onClick={handleConfirmSend}
+            >
+              <Send className="h-4 w-4" />
+              Xác nhận gửi
             </Button>
           </CardFooter>
         </Card>
@@ -244,11 +332,15 @@ export default function EmailForm() {
                   )}
                 />
 
-                {/* Hiển thị email người gửi sau khi xác thực */}
-                {isUnlocked && (
+                {isUnlocked && account && (
                   <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
                     <span className="text-muted-foreground">Email người gửi</span>
-                    <Badge variant="secondary">{senderEmail}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={account.type === "premium" ? "default" : "secondary"}>
+                        {account.type === "premium" ? "Premium" : "Free"}
+                      </Badge>
+                      <span className="font-medium">{account.email}</span>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -271,7 +363,6 @@ export default function EmailForm() {
             <form onSubmit={emailForm.handleSubmit(onEmailSubmit)}>
               <CardContent className="space-y-4">
 
-                {/* Recipient Email */}
                 <FormField
                   control={emailForm.control}
                   name="recipientEmail"
@@ -292,7 +383,6 @@ export default function EmailForm() {
                   )}
                 />
 
-                {/* Language */}
                 <FormField
                   control={emailForm.control}
                   name="language"
@@ -322,7 +412,6 @@ export default function EmailForm() {
                   )}
                 />
 
-                {/* Content */}
                 <FormField
                   control={emailForm.control}
                   name="content"
@@ -353,15 +442,15 @@ export default function EmailForm() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 gap-2"
                   onClick={handleReset}
                 >
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4" />
                   Xóa trắng
                 </Button>
                 <Button type="submit" disabled={!isUnlocked} className="flex-1 gap-2">
                   <Send className="h-4 w-4" />
-                  Gửi email
+                  {account?.type === "premium" ? "Xem trước" : "Gửi email"}
                 </Button>
               </CardFooter>
             </form>
