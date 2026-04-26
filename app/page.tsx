@@ -33,25 +33,33 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Send, RotateCcw, Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
-import type { UserType } from "@/app/api/auth/route"
+import {
+  authenticatePassword,
+  previewEmail,
+  sendEmail,
+  type UserType,
+} from "@/app/actions"
 
 // ─── Language list ────────────────────────────────────────────────────────────
 
 const LANGUAGES = [
-  { value: "vi",  label: "Tiếng Việt" },
-  { value: "en",  label: "English" },
-  { value: "fr",  label: "Français" },
-  { value: "de",  label: "Deutsch" },
-  { value: "es",  label: "Español" },
-  { value: "ja",  label: "日本語" },
-  { value: "ko",  label: "한국어" },
-  { value: "zh",  label: "中文" },
+  { value: "vi", label: "Tiếng Việt" },
+  { value: "en", label: "English" },
+  { value: "fr", label: "Français" },
+  { value: "de", label: "Deutsch" },
+  { value: "es", label: "Español" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "zh", label: "中文" },
 ]
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const passwordSchema = z.object({
-  password: z.string().min(1, "Vui lòng nhập mật khẩu."),
+  password: z
+    .string()
+    .min(1, "Vui lòng nhập mật khẩu.")
+    .regex(/^(admin|user)/, "Mật khẩu phải bắt đầu bằng 'admin' hoặc 'user'."),
 })
 
 const emailSchema = z.object({
@@ -67,23 +75,23 @@ const emailSchema = z.object({
 })
 
 type PasswordValues = z.infer<typeof passwordSchema>
-type EmailValues   = z.infer<typeof emailSchema>
+type EmailValues = z.infer<typeof emailSchema>
 
 // ─── State types ──────────────────────────────────────────────────────────────
 
 interface AuthedAccount {
-  password:    string
-  email:       string
-  type:        UserType
+  password: string
+  email: string
+  type: UserType
 }
 
 interface PreviewData {
-  password:           string
-  type:               UserType
-  senderEmail:        string
-  receiverEmail:      string
+  password: string
+  type: UserType
+  senderEmail: string
+  receiverEmail: string
   transformedContent: string
-  targetlanguage:     string
+  targetlanguage: string
 }
 
 interface SentData extends PreviewData {
@@ -94,11 +102,11 @@ interface SentData extends PreviewData {
 
 export default function EmailForm() {
   const [showPassword, setShowPassword] = useState(false)
-  const [account,      setAccount]      = useState<AuthedAccount | null>(null)
-  const [preview,      setPreview]      = useState<PreviewData | null>(null)
-  const [sent,         setSent]         = useState<SentData | null>(null)
-  const [isLoading,    setIsLoading]    = useState(false)
-  const [apiError,     setApiError]     = useState<string | null>(null)
+  const [account, setAccount] = useState<AuthedAccount | null>(null)
+  const [preview, setPreview] = useState<PreviewData | null>(null)
+  const [sent, setSent] = useState<SentData | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -110,111 +118,105 @@ export default function EmailForm() {
     defaultValues: { receiverEmail: "", language: "", content: "" },
   })
 
-  const isUnlocked     = account !== null
+  const isUnlocked = account !== null
   const watchedPassword = passwordForm.watch("password")
-  const watchedContent  = emailForm.watch("content")
+  const watchedContent = emailForm.watch("content")
 
-  // ─── Xác thực mật khẩu → POST /api/auth ──────────────────────────────────
+  // ─── Xác thực mật khẩu → Server Action ───────────────────────────────────
 
   const onPasswordSubmit = async (values: PasswordValues) => {
     setIsLoading(true)
     setApiError(null)
-    try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: values.password }),
+    const result = await authenticatePassword(values.password)
+    if (!result.success) {
+      passwordForm.setError("password", { message: result.error })
+    } else {
+      setAccount({
+        password: values.password,
+        email: result.email,
+        type: result.type,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        passwordForm.setError("password", { message: data.error })
-        return
-      }
-      setAccount({ password: values.password, email: data.email, type: data.type })
-    } catch {
-      passwordForm.setError("password", { message: "Lỗi kết nối. Vui lòng thử lại." })
-    } finally {
-      setIsLoading(false)
     }
+    setIsLoading(false)
   }
 
   // ─── Submit email form ────────────────────────────────────────────────────
-  // Premium → POST /api/email/preview → hiện màn hình xem trước
-  // Free    → POST /api/email/send   → gửi luôn
+  // Premium → Server Action previewEmail → hiện màn hình xem trước
+  // Free    → Server Action sendEmail   → gửi luôn
 
   const onEmailSubmit = async (values: EmailValues) => {
     if (!account) return
     setIsLoading(true)
     setApiError(null)
 
-    try {
-      if (account.type === "premium") {
-        const res = await fetch("/api/email/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            password:       account.password,
-            type:           account.type,
-            senderEmail:    account.email,
-            receiverEmail:  values.receiverEmail,
-            rawContent:     values.content,
-            targetlanguage: values.language,
-          }),
-        })
-        const data = await res.json()
-        if (!res.ok) { setApiError(data.error); return }
-        setPreview({
-          password:           account.password,
-          type:               account.type,
-          senderEmail:        account.email,
-          receiverEmail:      values.receiverEmail,
-          transformedContent: data.transformedContent,
-          targetlanguage:     values.language,
-        })
+    if (account.type === "premium") {
+      const result = await previewEmail({
+        password: account.password,
+        type: account.type,
+        senderEmail: account.email,
+        receiverEmail: values.receiverEmail,
+        rawContent: values.content,
+        targetlanguage: values.language,
+      })
+      if (!result.success) {
+        setApiError(result.error)
       } else {
-        const res = await fetch("/api/email/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            password:           account.password,
-            type:               account.type,
-            senderEmail:        account.email,
-            receiverEmail:      values.receiverEmail,
-            transformedContent: values.content,
-            targetlanguage:     values.language,
-          }),
+        setPreview({
+          password: account.password,
+          type: account.type,
+          senderEmail: account.email,
+          receiverEmail: values.receiverEmail,
+          transformedContent: result.transformedContent,
+          targetlanguage: values.language,
         })
-        const data = await res.json()
-        if (!res.ok) { setApiError(data.error); return }
-        setSent(data)
       }
-    } catch {
-      setApiError("Lỗi kết nối. Vui lòng thử lại.")
-    } finally {
-      setIsLoading(false)
+    } else {
+      const result = await sendEmail({
+        password: account.password,
+        type: account.type,
+        senderEmail: account.email,
+        receiverEmail: values.receiverEmail,
+        transformedContent: values.content,
+        targetlanguage: values.language,
+      })
+      if (!result.success) {
+        setApiError(result.error)
+      } else {
+        setSent({
+          password: account.password,
+          type: account.type,
+          senderEmail: result.senderEmail,
+          receiverEmail: result.receiverEmail,
+          transformedContent: result.transformedContent,
+          targetlanguage: result.targetlanguage,
+          status: result.status,
+        })
+      }
     }
+    setIsLoading(false)
   }
 
-  // ─── Xác nhận gửi (premium) → POST /api/email/send ───────────────────────
+  // ─── Xác nhận gửi (premium) → Server Action ──────────────────────────────
 
   const handleConfirmSend = async () => {
     if (!preview) return
     setIsLoading(true)
     setApiError(null)
-    try {
-      const res = await fetch("/api/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(preview),
+    const result = await sendEmail(preview)
+    if (!result.success) {
+      setApiError(result.error)
+    } else {
+      setSent({
+        password: preview.password,
+        type: preview.type,
+        senderEmail: result.senderEmail,
+        receiverEmail: result.receiverEmail,
+        transformedContent: result.transformedContent,
+        targetlanguage: result.targetlanguage,
+        status: result.status,
       })
-      const data = await res.json()
-      if (!res.ok) { setApiError(data.error); return }
-      setSent(data)
-    } catch {
-      setApiError("Lỗi kết nối. Vui lòng thử lại.")
-    } finally {
-      setIsLoading(false)
     }
+    setIsLoading(false)
   }
 
   const handleReset = () => {
@@ -237,40 +239,53 @@ export default function EmailForm() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Send className="h-6 w-6 text-foreground" />
             </div>
-            <CardTitle className="text-2xl">Email đã được gửi!</CardTitle>
+            <CardTitle className="text-2xl">Email da duoc gui!</CardTitle>
             <CardDescription>
-              Email gửi đến{" "}
-              <span className="font-medium text-foreground">{sent.receiverEmail}</span>{" "}
-              thành công.
+              Email gui den{" "}
+              <span className="font-medium text-foreground">
+                {sent.receiverEmail}
+              </span>{" "}
+              thanh cong.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Người gửi</span>
-              <span className="font-medium text-right truncate">{sent.senderEmail}</span>
+              <span className="text-muted-foreground">Nguoi gui</span>
+              <span className="font-medium text-right truncate">
+                {sent.senderEmail}
+              </span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Người nhận</span>
-              <span className="font-medium text-right truncate">{sent.receiverEmail}</span>
+              <span className="text-muted-foreground">Nguoi nhan</span>
+              <span className="font-medium text-right truncate">
+                {sent.receiverEmail}
+              </span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Ngôn ngữ</span>
+              <span className="text-muted-foreground">Ngon ngu</span>
               <span className="font-medium">
-                {LANGUAGES.find((l) => l.value === sent.targetlanguage)?.label ?? sent.targetlanguage}
+                {LANGUAGES.find((l) => l.value === sent.targetlanguage)
+                  ?.label ?? sent.targetlanguage}
               </span>
             </div>
             <Separator />
             <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Nội dung</span>
-              <p className="text-foreground whitespace-pre-wrap break-words">{sent.transformedContent}</p>
+              <span className="text-muted-foreground">Noi dung</span>
+              <p className="text-foreground whitespace-pre-wrap break-words">
+                {sent.transformedContent}
+              </p>
             </div>
           </CardContent>
           <CardFooter className="mt-2">
-            <Button variant="outline" className="w-full gap-2" onClick={handleReset}>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleReset}
+            >
               <RotateCcw className="h-4 w-4" />
-              Gửi email khác
+              Gui email khac
             </Button>
           </CardFooter>
         </Card>
@@ -286,32 +301,43 @@ export default function EmailForm() {
         <Card className="w-full max-w-lg">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl tracking-tight">Xem trước email</CardTitle>
+              <CardTitle className="text-xl tracking-tight">
+                Xem truoc email
+              </CardTitle>
               <Badge variant="secondary">Premium</Badge>
             </div>
-            <CardDescription>Kiểm tra lại nội dung trước khi gửi đi.</CardDescription>
+            <CardDescription>
+              Kiem tra lai noi dung truoc khi gui di.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 rounded-lg border bg-muted/50 p-4 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Người gửi</span>
-              <span className="font-medium text-right truncate">{preview.senderEmail}</span>
+              <span className="text-muted-foreground">Nguoi gui</span>
+              <span className="font-medium text-right truncate">
+                {preview.senderEmail}
+              </span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Người nhận</span>
-              <span className="font-medium text-right truncate">{preview.receiverEmail}</span>
+              <span className="text-muted-foreground">Nguoi nhan</span>
+              <span className="font-medium text-right truncate">
+                {preview.receiverEmail}
+              </span>
             </div>
             <Separator />
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Ngôn ngữ</span>
+              <span className="text-muted-foreground">Ngon ngu</span>
               <span className="font-medium">
-                {LANGUAGES.find((l) => l.value === preview.targetlanguage)?.label ?? preview.targetlanguage}
+                {LANGUAGES.find((l) => l.value === preview.targetlanguage)
+                  ?.label ?? preview.targetlanguage}
               </span>
             </div>
             <Separator />
             <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Nội dung đã xử lý</span>
-              <p className="text-foreground whitespace-pre-wrap break-words">{preview.transformedContent}</p>
+              <span className="text-muted-foreground">Noi dung da xu ly</span>
+              <p className="text-foreground whitespace-pre-wrap break-words">
+                {preview.transformedContent}
+              </p>
             </div>
           </CardContent>
           {apiError && (
@@ -322,10 +348,13 @@ export default function EmailForm() {
               variant="outline"
               className="flex-1 gap-2"
               disabled={isLoading}
-              onClick={() => { setPreview(null); setApiError(null) }}
+              onClick={() => {
+                setPreview(null)
+                setApiError(null)
+              }}
             >
               <RotateCcw className="h-4 w-4" />
-              Sửa lại
+              Sua lai
             </Button>
             <Button
               className="flex-1 gap-2"
@@ -333,7 +362,7 @@ export default function EmailForm() {
               onClick={handleConfirmSend}
             >
               <Send className="h-4 w-4" />
-              {isLoading ? "Đang gửi..." : "Xác nhận gửi"}
+              {isLoading ? "Dang gui..." : "Xac nhan gui"}
             </Button>
           </CardFooter>
         </Card>
@@ -346,16 +375,15 @@ export default function EmailForm() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-lg space-y-4">
-
         {/* Card 1: Xác thực mật khẩu */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Lock className="h-4 w-4" />
-              Xác thực mật khẩu
+              Xac thuc mat khau
             </CardTitle>
             <CardDescription>
-              Nhập mật khẩu để xác định email người gửi.
+              Nhap mat khau de xac dinh email nguoi gui.
             </CardDescription>
           </CardHeader>
           <Form {...passwordForm}>
@@ -366,14 +394,14 @@ export default function EmailForm() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mật khẩu</FormLabel>
+                      <FormLabel>Mat khau</FormLabel>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <FormControl>
                             <Input
                               {...field}
                               type={showPassword ? "text" : "password"}
-                              placeholder="Nhập mật khẩu..."
+                              placeholder="Nhap mat khau..."
                               disabled={isUnlocked}
                               className="pr-10"
                               onChange={(e) => {
@@ -389,9 +417,15 @@ export default function EmailForm() {
                             onClick={() => setShowPassword((v) => !v)}
                             disabled={isUnlocked}
                             className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-40"
-                            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            aria-label={
+                              showPassword ? "An mat khau" : "Hien mat khau"
+                            }
                           >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
                           </button>
                         </div>
                         <Button
@@ -400,11 +434,17 @@ export default function EmailForm() {
                           className="shrink-0 gap-1.5"
                         >
                           {isUnlocked ? (
-                            <><CheckCircle className="h-4 w-4" />Đã xác thực</>
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              Da xac thuc
+                            </>
                           ) : isLoading ? (
-                            "Đang kiểm tra..."
+                            "Dang kiem tra..."
                           ) : (
-                            <><Lock className="h-4 w-4" />Xác thực</>
+                            <>
+                              <Lock className="h-4 w-4" />
+                              Xac thuc
+                            </>
                           )}
                         </Button>
                       </div>
@@ -415,9 +455,15 @@ export default function EmailForm() {
 
                 {isUnlocked && account && (
                   <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
-                    <span className="text-muted-foreground">Email người gửi</span>
+                    <span className="text-muted-foreground">
+                      Email nguoi gui
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant={account.type === "premium" ? "default" : "secondary"}>
+                      <Badge
+                        variant={
+                          account.type === "premium" ? "default" : "secondary"
+                        }
+                      >
                         {account.type === "premium" ? "Premium" : "Free"}
                       </Badge>
                       <span className="font-medium">{account.email}</span>
@@ -432,11 +478,11 @@ export default function EmailForm() {
         {/* Card 2: Soạn email */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl tracking-tight">Soạn email</CardTitle>
+            <CardTitle className="text-xl tracking-tight">Soan email</CardTitle>
             <CardDescription>
               {isUnlocked
-                ? "Điền thông tin bên dưới để gửi email đến người nhận."
-                : "Xác thực mật khẩu ở trên để bắt đầu soạn email."}
+                ? "Dien thong tin ben duoi de gui email den nguoi nhan."
+                : "Xac thuc mat khau o tren de bat dau soan email."}
             </CardDescription>
           </CardHeader>
           <Form {...emailForm}>
@@ -447,7 +493,7 @@ export default function EmailForm() {
                   name="receiverEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email người nhận</FormLabel>
+                      <FormLabel>Email nguoi nhan</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -467,7 +513,7 @@ export default function EmailForm() {
                   name="language"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ngôn ngữ</FormLabel>
+                      <FormLabel>Ngon ngu</FormLabel>
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
@@ -475,7 +521,7 @@ export default function EmailForm() {
                       >
                         <FormControl>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Chọn ngôn ngữ..." />
+                            <SelectValue placeholder="Chon ngon ngu..." />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -496,11 +542,11 @@ export default function EmailForm() {
                   name="content"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nội dung email</FormLabel>
+                      <FormLabel>Noi dung email</FormLabel>
                       <FormControl>
                         <Textarea
                           {...field}
-                          placeholder="Nhập nội dung email của bạn tại đây..."
+                          placeholder="Nhap noi dung email cua ban tai day..."
                           rows={6}
                           disabled={!isUnlocked}
                           className="resize-y"
@@ -529,7 +575,7 @@ export default function EmailForm() {
                   onClick={handleReset}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Xóa trắng
+                  Xoa trang
                 </Button>
                 <Button
                   type="submit"
@@ -538,16 +584,15 @@ export default function EmailForm() {
                 >
                   <Send className="h-4 w-4" />
                   {isLoading
-                    ? "Đang xử lý..."
+                    ? "Dang xu ly..."
                     : account?.type === "premium"
-                    ? "Xem trước"
-                    : "Gửi email"}
+                      ? "Xem truoc"
+                      : "Gui email"}
                 </Button>
               </CardFooter>
             </form>
           </Form>
         </Card>
-
       </div>
     </main>
   )
