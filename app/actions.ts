@@ -25,20 +25,21 @@ function getEndpointUrl(endpoint: keyof typeof ENDPOINTS): string {
 export type UserType = "premium" | "free"
 
 export interface AccountConfig {
+  name: string
   email: string
   type: UserType
 }
 
 // ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
 // Key là mật khẩu (phải bắt đầu bằng "admin" hoặc "user")
-// Value chứa email và loại tài khoản
+// Value chứa name, email và loại tài khoản
 
 const ACCOUNTS: Record<string, AccountConfig> = {
-  admin123: { email: "admin@abc.com", type: "premium" },
-  user123: { email: "user@abc.com", type: "free" },
+  admin123: { name: "Admin", email: "admin@abc.com", type: "premium" },
+  user123: { name: "User", email: "user@abc.com", type: "free" },
   // Thêm tài khoản mới tại đây, ví dụ:
-  // admin456: { email: "admin2@abc.com", type: "premium" },
-  // user789:  { email: "user2@abc.com",  type: "free"    },
+  // admin456: { name: "Admin 2", email: "admin2@abc.com", type: "premium" },
+  // user789:  { name: "User 2",  email: "user2@abc.com",  type: "free"    },
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ const previewSchema = z.object({
   type: z.enum(["premium", "free"]),
   senderEmail: z.string().email(),
   receiverEmail: z.string().email(),
+  subject: z.string().min(1),
   rawContent: z.string().min(1),
   targetlanguage: z.string().min(1),
 })
@@ -64,6 +66,7 @@ const sendSchema = z.object({
   type: z.enum(["premium", "free"]),
   senderEmail: z.string().email(),
   receiverEmail: z.string().email(),
+  subject: z.string().min(1),
   transformedContent: z.string().min(1),
   targetlanguage: z.string().min(1),
 })
@@ -72,6 +75,7 @@ const sendSchema = z.object({
 
 interface AuthSuccessResponse {
   success: true
+  name: string
   email: string
   type: UserType
 }
@@ -100,6 +104,7 @@ interface SendSuccessResponse {
   status: string
   senderEmail: string
   receiverEmail: string
+  subject: string
   transformedContent: string
   targetlanguage: string
 }
@@ -112,9 +117,8 @@ interface SendErrorResponse {
 export type SendResponse = SendSuccessResponse | SendErrorResponse
 
 // ─── Server Action: Xác thực mật khẩu ─────────────────────────────────────────
-// Client gọi action này, server xử lý và gọi external API nếu cần
-// Request:  { password: "user123" }
-// Response: { success, email, type } | { success: false, error }
+// Request:  { "password": "user123" }
+// Response: { "name": "User", "email": "abc@gmail.com", "type": "free" }
 
 export async function authenticatePassword(
   password: string
@@ -126,7 +130,6 @@ export async function authenticatePassword(
     return { success: false, error: errorMsg }
   }
 
-  // Nếu có API_BASE_URL, gọi external API
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("auth"), {
@@ -142,7 +145,12 @@ export async function authenticatePassword(
       const data = await res.json()
 
       if (data.email && data.type) {
-        return { success: true, email: data.email, type: data.type }
+        return {
+          success: true,
+          name: data.name ?? "",
+          email: data.email,
+          type: data.type,
+        }
       }
 
       return {
@@ -154,25 +162,30 @@ export async function authenticatePassword(
     }
   }
 
-  // Xử lý local nếu không có external API
   const account = ACCOUNTS[parsed.data.password]
 
   if (!account) {
     return { success: false, error: "Mật khẩu không đúng. Vui lòng thử lại." }
   }
 
-  return { success: true, email: account.email, type: account.type }
+  return {
+    success: true,
+    name: account.name,
+    email: account.email,
+    type: account.type,
+  }
 }
 
 // ─── Server Action: Xem trước email (Premium) ─────────────────────────────────
-// Request:  { password, type, senderEmail, receiverEmail, rawContent, targetlanguage }
-// Response: { success, transformedContent } | { success: false, error }
+// Request:  { password, type, senderEmail, receiverEmail, subject, rawContent, targetlanguage }
+// Response: { transformedContent }
 
 export async function previewEmail(data: {
   password: string
   type: UserType
   senderEmail: string
   receiverEmail: string
+  subject: string
   rawContent: string
   targetlanguage: string
 }): Promise<PreviewResponse> {
@@ -182,10 +195,16 @@ export async function previewEmail(data: {
     return { success: false, error: "Dữ liệu không hợp lệ." }
   }
 
-  const { password, type, senderEmail, rawContent, receiverEmail, targetlanguage } =
-    parsed.data
+  const {
+    password,
+    type,
+    senderEmail,
+    receiverEmail,
+    subject,
+    rawContent,
+    targetlanguage,
+  } = parsed.data
 
-  // Nếu có API_BASE_URL, gọi external API
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("preview"), {
@@ -196,6 +215,7 @@ export async function previewEmail(data: {
           type,
           senderEmail,
           receiverEmail,
+          subject,
           rawContent,
           targetlanguage,
         }),
@@ -220,7 +240,6 @@ export async function previewEmail(data: {
     }
   }
 
-  // Xử lý local nếu không có external API
   const account = ACCOUNTS[password]
   if (!account || account.email !== senderEmail || account.type !== type) {
     return { success: false, error: "Xác thực không hợp lệ." }
@@ -241,14 +260,15 @@ export async function previewEmail(data: {
 
 // ─── Server Action: Gửi email ─────────────────────────────────────────────────
 // Dùng cho: user "free" khi ấn "Gửi email", hoặc user "premium" sau khi xác nhận
-// Request:  { password, type, senderEmail, receiverEmail, transformedContent, targetlanguage }
-// Response: { success, status, senderEmail, receiverEmail, transformedContent, targetlanguage }
+// Request:  { password, type, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
+// Response: { status, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
 
 export async function sendEmail(data: {
   password: string
   type: UserType
   senderEmail: string
   receiverEmail: string
+  subject: string
   transformedContent: string
   targetlanguage: string
 }): Promise<SendResponse> {
@@ -263,11 +283,11 @@ export async function sendEmail(data: {
     type,
     senderEmail,
     receiverEmail,
+    subject,
     transformedContent,
     targetlanguage,
   } = parsed.data
 
-  // Nếu có API_BASE_URL, gọi external API
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("send"), {
@@ -278,6 +298,7 @@ export async function sendEmail(data: {
           type,
           senderEmail,
           receiverEmail,
+          subject,
           transformedContent,
           targetlanguage,
         }),
@@ -295,6 +316,7 @@ export async function sendEmail(data: {
           status: result.status,
           senderEmail: result.senderEmail,
           receiverEmail: result.receiverEmail,
+          subject: result.subject,
           transformedContent: result.transformedContent,
           targetlanguage: result.targetlanguage,
         }
@@ -306,7 +328,6 @@ export async function sendEmail(data: {
     }
   }
 
-  // Xử lý local nếu không có external API
   const account = ACCOUNTS[password]
   if (!account || account.email !== senderEmail || account.type !== type) {
     return { success: false, error: "Xác thực không hợp lệ." }
@@ -319,6 +340,7 @@ export async function sendEmail(data: {
     status: "sent",
     senderEmail,
     receiverEmail,
+    subject,
     transformedContent,
     targetlanguage,
   }
