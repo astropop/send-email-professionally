@@ -409,7 +409,7 @@ export default function EmailForm() {
                       >
                         {account.type === "premium" ? "Premium" : "Free"}
                       </Badge>
-                      <span className="font-medium">{account.email}</span>
+                      <span className="font-medium">{account.name} &lt;{account.email}&gt;</span>
                     </div>
                   </div>
                 )}
