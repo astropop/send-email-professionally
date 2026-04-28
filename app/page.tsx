@@ -592,7 +592,7 @@ export default function EmailForm() {
               <p className="px-6 pt-2 text-sm text-destructive">{apiError}</p>
             )}
             <CardFooter className="flex gap-3 mt-2">
-              <Button
+              {/* <Button
                 variant="outline"
                 className="flex-1 gap-2"
                 disabled={isLoading}
@@ -603,7 +603,7 @@ export default function EmailForm() {
               >
                 <RotateCcw className="h-4 w-4" />
                 Sửa lại
-              </Button>
+              </Button> */}
               <Button
                 className="flex-1 gap-2"
                 disabled={isLoading}
