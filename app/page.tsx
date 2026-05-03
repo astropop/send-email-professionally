@@ -43,23 +43,20 @@ import {
 // ─── Language list ────────────────────────────────────────────────────────────
 
 const LANGUAGES = [
-  { value: "vi", label: "Vietnamese" },
-  { value: "en", label: "English" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-  { value: "es", label: "Spanish" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-  { value: "zh", label: "Chinese" },
+  { value: "vi",  label: "Vietnamese" },
+  { value: "en",  label: "English"    },
+  { value: "fr",  label: "French"     },
+  { value: "de",  label: "German"     },
+  { value: "es",  label: "Spanish"    },
+  { value: "ja",  label: "Japanese"   },
+  { value: "ko",  label: "Korean"     },
+  { value: "zh",  label: "Chinese"    },
 ]
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const passwordSchema = z.object({
-  password: z
-    .string()
-    .min(1, "Vui lòng nhập mật khẩu.")
-    .regex(/^(admin|user)/, "Mật khẩu phải bắt đầu bằng 'admin' hoặc 'user'."),
+  password: z.string().min(1, "Vui lòng nhập mật khẩu."),
 })
 
 const emailSchema = z.object({
@@ -79,34 +76,33 @@ const emailSchema = z.object({
 })
 
 type PasswordValues = z.infer<typeof passwordSchema>
-type EmailValues = z.infer<typeof emailSchema>
+type EmailValues   = z.infer<typeof emailSchema>
 
 // ─── State types ──────────────────────────────────────────────────────────────
 
 interface AuthedAccount {
   password: string
-  name: string
-  email: string
-  type: UserType
+  name:     string
+  email:    string
+  type:     UserType
 }
 
 interface PreviewData {
-  password: string
-  type: UserType
-  senderEmail: string
+  password:      string
   receiverEmail: string
-  subject: string
-  transformedContent: string
+  subject:       string
+  content:       string
   targetlanguage: string
 }
 
 interface SentData {
-  status: string
-  senderEmail: string
+  status:        string
+  sender:        string
+  senderEmail:   string
   receiverEmail: string
-  subject: string
-  transformedContent: string
-  targetlanguage: string
+  subject:       string
+  content:       string
+  targetLanguage: string
 }
 
 // ─── Reusable info row ────────────────────────────────────────────────────────
@@ -116,8 +112,8 @@ function InfoRow({
   value,
   multiline = false,
 }: {
-  label: string
-  value: string
+  label:     string
+  value:     string
   multiline?: boolean
 }) {
   return (
@@ -139,11 +135,11 @@ function InfoRow({
 
 export default function EmailForm() {
   const [showPassword, setShowPassword] = useState(false)
-  const [account, setAccount] = useState<AuthedAccount | null>(null)
-  const [preview, setPreview] = useState<PreviewData | null>(null)
-  const [sent, setSent] = useState<SentData | null>(null)
+  const [account,  setAccount]  = useState<AuthedAccount | null>(null)
+  const [preview,  setPreview]  = useState<PreviewData   | null>(null)
+  const [sent,     setSent]     = useState<SentData      | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [apiError, setApiError] = useState<string | null>(null)
+  const [apiError,  setApiError]  = useState<string | null>(null)
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -155,9 +151,9 @@ export default function EmailForm() {
     defaultValues: { receiverEmail: "", language: "", subject: "", content: "" },
   })
 
-  const isUnlocked = account !== null
+  const isUnlocked     = account !== null
   const watchedPassword = passwordForm.watch("password")
-  const watchedContent = emailForm.watch("content")
+  const watchedContent  = emailForm.watch("content")
 
   // ─── Xác thực mật khẩu ───────────────────────────────────────────────────
 
@@ -170,9 +166,9 @@ export default function EmailForm() {
     } else {
       setAccount({
         password: values.password,
-        name: result.name,
-        email: result.email,
-        type: result.type,
+        name:     result.name,
+        email:    result.email,
+        type:     result.type,
       })
     }
     setIsLoading(false)
@@ -186,48 +182,45 @@ export default function EmailForm() {
     setApiError(null)
 
     if (account.type === "premium") {
+      // Gọi preview trước khi gửi
       const result = await previewEmail({
-        password: account.password,
-        type: account.type,
-        senderEmail: account.email,
-        receiverEmail: values.receiverEmail,
-        subject: values.subject,
-        rawContent: values.content,
+        password:       account.password,
+        receiverEmail:  values.receiverEmail,
+        subject:        values.subject,
+        content:        values.content,
         targetlanguage: values.language,
       })
       if (!result.success) {
         setApiError(result.error)
       } else {
         setPreview({
-          password: account.password,
-          type: account.type,
-          senderEmail: account.email,
-          receiverEmail: values.receiverEmail,
-          subject: values.subject,
-          transformedContent: result.transformedContent,
+          password:       account.password,
+          receiverEmail:  values.receiverEmail,
+          subject:        result.subject,
+          content:        result.content,
           targetlanguage: values.language,
         })
       }
     } else {
+      // Free: gửi thẳng
       const result = await sendEmail({
-        password: account.password,
-        type: account.type,
-        senderEmail: account.email,
-        receiverEmail: values.receiverEmail,
-        subject: values.subject,
-        transformedContent: values.content,
+        password:       account.password,
+        receiverEmail:  values.receiverEmail,
+        subject:        values.subject,
+        content:        values.content,
         targetlanguage: values.language,
       })
       if (!result.success) {
         setApiError(result.error)
       } else {
         setSent({
-          status: result.status,
-          senderEmail: result.senderEmail,
+          status:        result.status,
+          sender:        result.sender,
+          senderEmail:   result.senderEmail,
           receiverEmail: result.receiverEmail,
-          subject: result.subject,
-          transformedContent: result.transformedContent,
-          targetlanguage: result.targetlanguage,
+          subject:       result.subject,
+          content:       result.content,
+          targetLanguage: result.targetLanguage,
         })
       }
     }
@@ -245,13 +238,15 @@ export default function EmailForm() {
       setApiError(result.error)
     } else {
       setSent({
-        status: result.status,
-        senderEmail: result.senderEmail,
+        status:        result.status,
+        sender:        result.sender,
+        senderEmail:   result.senderEmail,
         receiverEmail: result.receiverEmail,
-        subject: result.subject,
-        transformedContent: result.transformedContent,
-        targetlanguage: result.targetlanguage,
+        subject:       result.subject,
+        content:       result.content,
+        targetLanguage: result.targetLanguage,
       })
+      setPreview(null)
     }
     setIsLoading(false)
   }
@@ -279,36 +274,30 @@ export default function EmailForm() {
             <CardTitle className="text-2xl">Email đã được gửi!</CardTitle>
             <CardDescription>
               Email gửi đến{" "}
-              <span className="font-medium text-foreground">
-                {sent.receiverEmail}
-              </span>{" "}
+              <span className="font-medium text-foreground">{sent.receiverEmail}</span>{" "}
               thành công.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
-            <InfoRow label="Người gửi" value={sent.senderEmail} />
-            <InfoRow label="Người nhận" value={sent.receiverEmail} />
-            <InfoRow label="Tiêu đề" value={sent.subject} />
+            <InfoRow label="Người gửi" value={`${sent.sender} <${sent.senderEmail}>`} />
+            <InfoRow label="Người nhận"  value={sent.receiverEmail} />
+            <InfoRow label="Tiêu đề"     value={sent.subject} />
             <InfoRow
               label="Ngôn ngữ"
               value={
-                LANGUAGES.find((l) => l.value === sent.targetlanguage)?.label ??
-                sent.targetlanguage
+                LANGUAGES.find((l) => l.value === sent.targetLanguage)?.label ??
+                sent.targetLanguage
               }
             />
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground">Nội dung</span>
               <p className="text-foreground whitespace-pre-wrap break-words">
-                {sent.transformedContent}
+                {sent.content}
               </p>
             </div>
           </CardContent>
           <CardFooter className="mt-2">
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={handleReset}
-            >
+            <Button variant="outline" className="w-full gap-2" onClick={handleReset}>
               <RotateCcw className="h-4 w-4" />
               Gửi email khác
             </Button>
@@ -404,12 +393,12 @@ export default function EmailForm() {
                   <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
                     <span className="text-muted-foreground">Email người gửi</span>
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={account.type === "premium" ? "default" : "secondary"}
-                      >
+                      <Badge variant={account.type === "premium" ? "default" : "secondary"}>
                         {account.type === "premium" ? "Premium" : "Free"}
                       </Badge>
-                      <span className="font-medium">{account.name} &lt;{account.email}&gt;</span>
+                      <span className="font-medium">
+                        {account.name} &lt;{account.email}&gt;
+                      </span>
                     </div>
                   </div>
                 )}
@@ -556,7 +545,7 @@ export default function EmailForm() {
           </Form>
         </Card>
 
-        {/* Card 3: Xem trước (chỉ premium, hiển thị ngay dưới form) */}
+        {/* Card 3: Xem trước — chỉ Premium, hiển thị ngay dưới form */}
         {preview && (
           <Card>
             <CardHeader>
@@ -571,41 +560,28 @@ export default function EmailForm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
-              <InfoRow label="Người gửi" value={preview.senderEmail} />
               <InfoRow label="Người nhận" value={preview.receiverEmail} />
-              <InfoRow label="Tiêu đề" value={preview.subject} />
+              <InfoRow label="Tiêu đề"    value={preview.subject} />
               <InfoRow
                 label="Ngôn ngữ"
                 value={
-                  LANGUAGES.find((l) => l.value === preview.targetlanguage)
-                    ?.label ?? preview.targetlanguage
+                  LANGUAGES.find((l) => l.value === preview.targetlanguage)?.label ??
+                  preview.targetlanguage
                 }
               />
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground">Nội dung đã xử lý</span>
                 <p className="text-foreground whitespace-pre-wrap break-words">
-                  {preview.transformedContent}
+                  {preview.content}
                 </p>
               </div>
             </CardContent>
             {apiError && (
               <p className="px-6 pt-2 text-sm text-destructive">{apiError}</p>
             )}
-            <CardFooter className="flex gap-3 mt-2">
-              {/* <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                disabled={isLoading}
-                onClick={() => {
-                  setPreview(null)
-                  setApiError(null)
-                }}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Sửa lại
-              </Button> */}
+            <CardFooter className="mt-2">
               <Button
-                className="flex-1 gap-2"
+                className="w-full gap-2"
                 disabled={isLoading}
                 onClick={handleConfirmSend}
               >

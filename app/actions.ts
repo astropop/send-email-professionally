@@ -31,44 +31,36 @@ export interface AccountConfig {
 }
 
 // ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
-// Key là mật khẩu (phải bắt đầu bằng "admin" hoặc "user")
 // Value chứa name, email và loại tài khoản
 
 const ACCOUNTS: Record<string, AccountConfig> = {
-  admin123: { name: "Admin", email: "admin@abc.com", type: "premium" },
-  user123: { name: "User", email: "user@abc.com", type: "free" },
+  "free@32026":  { name: "Lukas Le",  email: "lehoangthach211191@gmail.com", type: "free"    },
+  "pre@12026":   { name: "Tài Lê 1",  email: "vnw1234@gmail.com",            type: "premium" },
   // Thêm tài khoản mới tại đây, ví dụ:
-  // admin456: { name: "Admin 2", email: "admin2@abc.com", type: "premium" },
-  // user789:  { name: "User 2",  email: "user2@abc.com",  type: "free"    },
+  // "free@99999": { name: "User 2", email: "user2@gmail.com", type: "free"    },
+  // "pre@99999":  { name: "Admin 2", email: "admin2@gmail.com", type: "premium" },
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const authSchema = z.object({
-  password: z
-    .string()
-    .min(1, "Vui lòng nhập mật khẩu.")
-    .regex(/^(admin|user)/, "Mật khẩu phải bắt đầu bằng 'admin' hoặc 'user'."),
+  password: z.string().min(1, "Vui lòng nhập mật khẩu."),
 })
 
 const previewSchema = z.object({
-  password: z.string().min(1),
-  type: z.enum(["premium", "free"]),
-  senderEmail: z.string().email(),
-  receiverEmail: z.string().email(),
-  subject: z.string().min(1),
-  rawContent: z.string().min(1),
-  targetlanguage: z.string().min(1),
+  password:        z.string().min(1),
+  receiverEmail:   z.string().email(),
+  subject:         z.string().min(1),
+  content:         z.string().min(1),
+  targetlanguage:  z.string().min(1),
 })
 
 const sendSchema = z.object({
-  password: z.string().min(1),
-  type: z.enum(["premium", "free"]),
-  senderEmail: z.string().email(),
-  receiverEmail: z.string().email(),
-  subject: z.string().min(1),
-  transformedContent: z.string().min(1),
-  targetlanguage: z.string().min(1),
+  password:           z.string().min(1),
+  receiverEmail:      z.string().email(),
+  subject:            z.string().min(1),
+  content:            z.string().min(1),
+  targetlanguage:     z.string().min(1),
 })
 
 // ─── Response types ───────────────────────────────────────────────────────────
@@ -89,7 +81,8 @@ export type AuthResponse = AuthSuccessResponse | AuthErrorResponse
 
 interface PreviewSuccessResponse {
   success: true
-  transformedContent: string
+  subject: string
+  content: string
 }
 
 interface PreviewErrorResponse {
@@ -102,11 +95,12 @@ export type PreviewResponse = PreviewSuccessResponse | PreviewErrorResponse
 interface SendSuccessResponse {
   success: true
   status: string
+  sender: string
   senderEmail: string
   receiverEmail: string
   subject: string
-  transformedContent: string
-  targetlanguage: string
+  content: string
+  targetLanguage: string
 }
 
 interface SendErrorResponse {
@@ -117,8 +111,9 @@ interface SendErrorResponse {
 export type SendResponse = SendSuccessResponse | SendErrorResponse
 
 // ─── Server Action: Xác thực mật khẩu ─────────────────────────────────────────
-// Request:  { "password": "user123" }
-// Response: { "name": "User", "email": "abc@gmail.com", "type": "free" }
+// POST /api/auth
+// Request:  { "password": "free@32026" }
+// Response: { "name": "Lukas Le", "email": "lehoangthach211191@gmail.com", "type": "free" }
 
 export async function authenticatePassword(
   password: string
@@ -163,30 +158,23 @@ export async function authenticatePassword(
   }
 
   const account = ACCOUNTS[parsed.data.password]
-
   if (!account) {
     return { success: false, error: "Mật khẩu không đúng. Vui lòng thử lại." }
   }
 
-  return {
-    success: true,
-    name: account.name,
-    email: account.email,
-    type: account.type,
-  }
+  return { success: true, name: account.name, email: account.email, type: account.type }
 }
 
 // ─── Server Action: Xem trước email (Premium) ─────────────────────────────────
-// Request:  { password, type, senderEmail, receiverEmail, subject, rawContent, targetlanguage }
-// Response: { transformedContent }
+// POST /api/email/preview
+// Request:  { password, receiverEmail, subject, content, targetlanguage }
+// Response: { subject, content }
 
 export async function previewEmail(data: {
   password: string
-  type: UserType
-  senderEmail: string
   receiverEmail: string
   subject: string
-  rawContent: string
+  content: string
   targetlanguage: string
 }): Promise<PreviewResponse> {
   const parsed = previewSchema.safeParse(data)
@@ -195,30 +183,12 @@ export async function previewEmail(data: {
     return { success: false, error: "Dữ liệu không hợp lệ." }
   }
 
-  const {
-    password,
-    type,
-    senderEmail,
-    receiverEmail,
-    subject,
-    rawContent,
-    targetlanguage,
-  } = parsed.data
-
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("preview"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password,
-          type,
-          senderEmail,
-          receiverEmail,
-          subject,
-          rawContent,
-          targetlanguage,
-        }),
+        body: JSON.stringify(parsed.data),
       })
 
       if (!res.ok) {
@@ -227,49 +197,52 @@ export async function previewEmail(data: {
 
       const result = await res.json()
 
-      if (result.transformedContent) {
-        return { success: true, transformedContent: result.transformedContent }
+      if (result.content) {
+        return {
+          success: true,
+          subject: result.subject ?? parsed.data.subject,
+          content: result.content,
+        }
       }
 
-      return {
-        success: false,
-        error: result.error ?? "Không thể xử lý nội dung.",
-      }
+      return { success: false, error: result.error ?? "Không thể xử lý nội dung." }
     } catch {
       return { success: false, error: "Không thể kết nối đến server." }
     }
   }
 
-  const account = ACCOUNTS[password]
-  if (!account || account.email !== senderEmail || account.type !== type) {
+  const account = ACCOUNTS[parsed.data.password]
+  if (!account) {
     return { success: false, error: "Xác thực không hợp lệ." }
   }
-
   if (account.type !== "premium") {
     return { success: false, error: "Chức năng chỉ dành cho tài khoản Premium." }
   }
 
   // TODO: Tích hợp dịch vụ dịch nội dung thực tế tại đây.
-  const transformedContent = rawContent
+  const translatedContent = parsed.data.content
     .split("\n")
     .map((line) => `[Translated] ${line}`)
     .join("\n")
 
-  return { success: true, transformedContent }
+  return {
+    success: true,
+    subject: `[Translated] ${parsed.data.subject}`,
+    content: translatedContent,
+  }
 }
 
 // ─── Server Action: Gửi email ─────────────────────────────────────────────────
 // Dùng cho: user "free" khi ấn "Gửi email", hoặc user "premium" sau khi xác nhận
-// Request:  { password, type, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
-// Response: { status, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
+// POST /api/email/send
+// Request:  { password, receiverEmail, subject, content, targetlanguage }
+// Response: { status, sender, senderEmail, receiverEmail, subject, content, targetLanguage }
 
 export async function sendEmail(data: {
   password: string
-  type: UserType
-  senderEmail: string
   receiverEmail: string
   subject: string
-  transformedContent: string
+  content: string
   targetlanguage: string
 }): Promise<SendResponse> {
   const parsed = sendSchema.safeParse(data)
@@ -278,30 +251,12 @@ export async function sendEmail(data: {
     return { success: false, error: "Dữ liệu không hợp lệ." }
   }
 
-  const {
-    password,
-    type,
-    senderEmail,
-    receiverEmail,
-    subject,
-    transformedContent,
-    targetlanguage,
-  } = parsed.data
-
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password,
-          type,
-          senderEmail,
-          receiverEmail,
-          subject,
-          transformedContent,
-          targetlanguage,
-        }),
+        body: JSON.stringify(parsed.data),
       })
 
       if (!res.ok) {
@@ -314,11 +269,12 @@ export async function sendEmail(data: {
         return {
           success: true,
           status: result.status,
+          sender: result.sender ?? "",
           senderEmail: result.senderEmail,
           receiverEmail: result.receiverEmail,
           subject: result.subject,
-          transformedContent: result.transformedContent,
-          targetlanguage: result.targetlanguage,
+          content: result.content,
+          targetLanguage: result.targetLanguage,
         }
       }
 
@@ -328,8 +284,8 @@ export async function sendEmail(data: {
     }
   }
 
-  const account = ACCOUNTS[password]
-  if (!account || account.email !== senderEmail || account.type !== type) {
+  const account = ACCOUNTS[parsed.data.password]
+  if (!account) {
     return { success: false, error: "Xác thực không hợp lệ." }
   }
 
@@ -338,10 +294,11 @@ export async function sendEmail(data: {
   return {
     success: true,
     status: "sent",
-    senderEmail,
-    receiverEmail,
-    subject,
-    transformedContent,
-    targetlanguage,
+    sender: account.name,
+    senderEmail: account.email,
+    receiverEmail: parsed.data.receiverEmail,
+    subject: parsed.data.subject,
+    content: parsed.data.content,
+    targetLanguage: parsed.data.targetlanguage,
   }
 }
