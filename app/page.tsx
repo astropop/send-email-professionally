@@ -43,14 +43,14 @@ import {
 // ─── Language list ────────────────────────────────────────────────────────────
 
 const LANGUAGES = [
-  { value: "vi", label: "Tiếng Việt" },
+  { value: "vi", label: "Vietnamese" },
   { value: "en", label: "English" },
-  { value: "fr", label: "Français" },
-  { value: "de", label: "Deutsch" },
-  { value: "es", label: "Español" },
-  { value: "ja", label: "日本語" },
-  { value: "ko", label: "한국어" },
-  { value: "zh", label: "中文" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "es", label: "Spanish" },
+  { value: "ja", label: "Japanese" },
+  { value: "ko", label: "Korean" },
+  { value: "zh", label: "Chinese" },
 ]
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
