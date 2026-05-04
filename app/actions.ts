@@ -2,20 +2,14 @@
 
 import { z } from "zod";
 
-// ─── API Configuration ────────────────────────────────────────────────────────
-// Thay đổi domain tại đây để gửi request đến server khác
-// Để trống hoặc "/" nếu gửi request đến cùng server (internal)
-
 const API_BASE_URL = process.env.API_BASE_URL ?? "";
 
-// Các endpoint — chỉ cần sửa tại đây để thay đổi đường dẫn
 const ENDPOINTS = {
   auth: "/api/auth",
   preview: "/api/email/preview",
   send: "/api/email/send",
 } as const;
 
-// Helper để tạo full URL
 function getEndpointUrl(endpoint: keyof typeof ENDPOINTS): string {
   return `${API_BASE_URL}${ENDPOINTS[endpoint]}`;
 }
@@ -30,16 +24,17 @@ export interface AccountConfig {
   type: UserType;
 }
 
-// ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
-// Key là mật khẩu (phải bắt đầu bằng "admin" hoặc "user")
-// Value chứa name, email và loại tài khoản
-
 const ACCOUNTS: Record<string, AccountConfig> = {
-  admin123: { name: "Admin", email: "admin@abc.com", type: "premium" },
-  user123: { name: "User", email: "user@abc.com", type: "free" },
-  // Thêm tài khoản mới tại đây, ví dụ:
-  // admin456: { name: "Admin 2", email: "admin2@abc.com", type: "premium" },
-  // user789:  { name: "User 2",  email: "user2@abc.com",  type: "free"    },
+  "free@12026": {
+    name: "Free user",
+    email: "free1@gmail.com",
+    type: "free",
+  },
+  "pre@12026": {
+    name: "Pre user",
+    email: "pre1@gmail.com",
+    type: "premium",
+  },
 };
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -48,26 +43,22 @@ const authSchema = z.object({
   password: z
     .string()
     .min(1, "Vui lòng nhập mật khẩu.")
-    .regex(/^(admin|user)/, "Mật khẩu phải bắt đầu bằng 'admin' hoặc 'user'."),
+    .regex(/^(free|pre)/, "Mật khẩu không đúng"),
 });
 
 const previewSchema = z.object({
   password: z.string().min(1),
-  type: z.enum(["premium", "free"]),
-  senderEmail: z.string().email(),
   receiverEmail: z.string().email(),
   subject: z.string().min(1),
-  rawContent: z.string().min(1),
+  content: z.string().min(1),
   targetlanguage: z.string().min(1),
 });
 
 const sendSchema = z.object({
   password: z.string().min(1),
-  type: z.enum(["premium", "free"]),
-  senderEmail: z.string().email(),
   receiverEmail: z.string().email(),
   subject: z.string().min(1),
-  transformedContent: z.string().min(1),
+  content: z.string().min(1),
   targetlanguage: z.string().min(1),
 });
 
@@ -89,7 +80,8 @@ export type AuthResponse = AuthSuccessResponse | AuthErrorResponse;
 
 interface PreviewSuccessResponse {
   success: true;
-  transformedContent: string;
+  subject: string;
+  content: string;
 }
 
 interface PreviewErrorResponse {
@@ -102,11 +94,12 @@ export type PreviewResponse = PreviewSuccessResponse | PreviewErrorResponse;
 interface SendSuccessResponse {
   success: true;
   status: string;
+  sender: string;
   senderEmail: string;
   receiverEmail: string;
   subject: string;
-  transformedContent: string;
-  targetlanguage: string;
+  content: string;
+  targetLanguage: string;
 }
 
 interface SendErrorResponse {
@@ -117,8 +110,7 @@ interface SendErrorResponse {
 export type SendResponse = SendSuccessResponse | SendErrorResponse;
 
 // ─── Server Action: Xác thực mật khẩu ─────────────────────────────────────────
-// Request:  { "password": "user123" }
-// Response: { "name": "User", "email": "abc@gmail.com", "type": "free" }
+// POST /api/auth
 
 export async function authenticatePassword(
   password: string,
@@ -138,7 +130,6 @@ export async function authenticatePassword(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: parsed.data.password }),
       });
-
       if (!res.ok) {
         return { success: false, error: "Lỗi kết nối đến server." };
       }
@@ -164,7 +155,6 @@ export async function authenticatePassword(
   }
 
   const account = ACCOUNTS[parsed.data.password];
-
   if (!account) {
     return { success: false, error: "Mật khẩu không đúng. Vui lòng thử lại." };
   }
@@ -177,17 +167,13 @@ export async function authenticatePassword(
   };
 }
 
-// ─── Server Action: Xem trước email (Premium) ─────────────────────────────────
-// Request:  { password, type, senderEmail, receiverEmail, subject, rawContent, targetlanguage }
-// Response: { transformedContent }
+// POST /api/email/preview
 
 export async function previewEmail(data: {
   password: string;
-  type: UserType;
-  senderEmail: string;
   receiverEmail: string;
   subject: string;
-  rawContent: string;
+  content: string;
   targetlanguage: string;
 }): Promise<PreviewResponse> {
   const parsed = previewSchema.safeParse(data);
@@ -196,30 +182,12 @@ export async function previewEmail(data: {
     return { success: false, error: "Dữ liệu không hợp lệ." };
   }
 
-  const {
-    password,
-    type,
-    senderEmail,
-    receiverEmail,
-    subject,
-    rawContent,
-    targetlanguage,
-  } = parsed.data;
-
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("preview"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password,
-          type,
-          senderEmail,
-          receiverEmail,
-          subject,
-          rawContent,
-          targetlanguage,
-        }),
+        body: JSON.stringify(parsed.data),
       });
 
       if (!res.ok) {
@@ -228,8 +196,12 @@ export async function previewEmail(data: {
 
       const result = await res.json();
 
-      if (result.transformedContent) {
-        return { success: true, transformedContent: result.transformedContent };
+      if (result.content) {
+        return {
+          success: true,
+          subject: result.subject ?? parsed.data.subject,
+          content: result.content,
+        };
       }
 
       return {
@@ -241,11 +213,10 @@ export async function previewEmail(data: {
     }
   }
 
-  const account = ACCOUNTS[password];
-  if (!account || account.email !== senderEmail || account.type !== type) {
+  const account = ACCOUNTS[parsed.data.password];
+  if (!account) {
     return { success: false, error: "Xác thực không hợp lệ." };
   }
-
   if (account.type !== "premium") {
     return {
       success: false,
@@ -254,26 +225,25 @@ export async function previewEmail(data: {
   }
 
   // TODO: Tích hợp dịch vụ dịch nội dung thực tế tại đây.
-  const transformedContent = rawContent
+  const translatedContent = parsed.data.content
     .split("\n")
     .map((line) => `[Translated] ${line}`)
     .join("\n");
 
-  return { success: true, transformedContent };
+  return {
+    success: true,
+    subject: `[Translated] ${parsed.data.subject}`,
+    content: translatedContent,
+  };
 }
 
-// ─── Server Action: Gửi email ─────────────────────────────────────────────────
-// Dùng cho: user "free" khi ấn "Gửi email", hoặc user "premium" sau khi xác nhận
-// Request:  { password, type, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
-// Response: { status, senderEmail, receiverEmail, subject, transformedContent, targetlanguage }
+// POST /api/email/send
 
 export async function sendEmail(data: {
   password: string;
-  type: UserType;
-  senderEmail: string;
   receiverEmail: string;
   subject: string;
-  transformedContent: string;
+  content: string;
   targetlanguage: string;
 }): Promise<SendResponse> {
   const parsed = sendSchema.safeParse(data);
@@ -282,30 +252,12 @@ export async function sendEmail(data: {
     return { success: false, error: "Dữ liệu không hợp lệ." };
   }
 
-  const {
-    password,
-    type,
-    senderEmail,
-    receiverEmail,
-    subject,
-    transformedContent,
-    targetlanguage,
-  } = parsed.data;
-
   if (API_BASE_URL) {
     try {
       const res = await fetch(getEndpointUrl("send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          password,
-          type,
-          senderEmail,
-          receiverEmail,
-          subject,
-          transformedContent,
-          targetlanguage,
-        }),
+        body: JSON.stringify(parsed.data),
       });
 
       if (!res.ok) {
@@ -318,11 +270,12 @@ export async function sendEmail(data: {
         return {
           success: true,
           status: result.status,
+          sender: result.sender ?? "",
           senderEmail: result.senderEmail,
           receiverEmail: result.receiverEmail,
           subject: result.subject,
-          transformedContent: result.transformedContent,
-          targetlanguage: result.targetlanguage,
+          content: result.content,
+          targetLanguage: result.targetLanguage,
         };
       }
 
@@ -332,20 +285,19 @@ export async function sendEmail(data: {
     }
   }
 
-  const account = ACCOUNTS[password];
-  if (!account || account.email !== senderEmail || account.type !== type) {
+  const account = ACCOUNTS[parsed.data.password];
+  if (!account) {
     return { success: false, error: "Xác thực không hợp lệ." };
   }
-
-  // TODO: Tích hợp dịch vụ gửi email thực tế (SendGrid, Resend, Nodemailer…) tại đây.
 
   return {
     success: true,
     status: "sent",
-    senderEmail,
-    receiverEmail,
-    subject,
-    transformedContent,
-    targetlanguage,
+    sender: account.name,
+    senderEmail: account.email,
+    receiverEmail: parsed.data.receiverEmail,
+    subject: parsed.data.subject,
+    content: parsed.data.content,
+    targetLanguage: parsed.data.targetlanguage,
   };
 }
