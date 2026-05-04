@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -762,6 +763,22 @@ export default function EmailForm() {
             <UsageGuide />
           </div>
         </div>
+
+        {/* Footer Credit */}
+        <footer className="border-t border-border bg-muted/40 mt-12 py-6">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+              <Image
+                src="/logo-team.png"
+                alt="+84 Team logo"
+                width={48}
+                height={48}
+                className="rounded-full object-contain"
+              />
+              <p>Presented by +84 Team, Flinders University</p>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
