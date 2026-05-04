@@ -42,8 +42,8 @@ const ACCOUNTS: Record<string, AccountConfig> = {
 const authSchema = z.object({
   password: z
     .string()
-    .min(1, "Vui lòng nhập mật khẩu.")
-    .regex(/^(free|pre)/, "Mật khẩu không đúng"),
+    .min(1, "Please enter your password.")
+    .regex(/^(free|pre)/, "Invalid password format"),
 });
 
 const previewSchema = z.object({
@@ -109,17 +109,17 @@ interface SendErrorResponse {
 
 export type SendResponse = SendSuccessResponse | SendErrorResponse;
 
-// ─── Server Action: Xác thực mật khẩu ─────────────────────────────────────────
+// ─── Server Action: Authenticate password ─────────────────────────────────────
 // POST /api/auth
 
 export async function authenticatePassword(
-  password: string,
+  password: string
 ): Promise<AuthResponse> {
   const parsed = authSchema.safeParse({ password });
 
   if (!parsed.success) {
     const errorMsg =
-      parsed.error.errors[0]?.message ?? "Mật khẩu không hợp lệ.";
+      parsed.error.errors[0]?.message ?? "Invalid password.";
     return { success: false, error: errorMsg };
   }
 
@@ -131,7 +131,7 @@ export async function authenticatePassword(
         body: JSON.stringify({ password: parsed.data.password }),
       });
       if (!res.ok) {
-        return { success: false, error: "Lỗi kết nối đến server." };
+        return { success: false, error: "Server connection error." };
       }
 
       const data = await res.json();
@@ -147,16 +147,16 @@ export async function authenticatePassword(
 
       return {
         success: false,
-        error: data.error ?? "Mật khẩu không đúng. Vui lòng thử lại.",
+        error: data.error ?? "Invalid password. Please try again.",
       };
     } catch {
-      return { success: false, error: "Không thể kết nối đến server." };
+      return { success: false, error: "Unable to connect to server." };
     }
   }
 
   const account = ACCOUNTS[parsed.data.password];
   if (!account) {
-    return { success: false, error: "Mật khẩu không đúng. Vui lòng thử lại." };
+    return { success: false, error: "Invalid password. Please try again." };
   }
 
   return {
@@ -179,7 +179,7 @@ export async function previewEmail(data: {
   const parsed = previewSchema.safeParse(data);
 
   if (!parsed.success) {
-    return { success: false, error: "Dữ liệu không hợp lệ." };
+    return { success: false, error: "Invalid data." };
   }
 
   if (API_BASE_URL) {
@@ -191,7 +191,7 @@ export async function previewEmail(data: {
       });
 
       if (!res.ok) {
-        return { success: false, error: "Lỗi kết nối đến server." };
+        return { success: false, error: "Server connection error." };
       }
 
       const result = await res.json();
@@ -206,25 +206,25 @@ export async function previewEmail(data: {
 
       return {
         success: false,
-        error: result.error ?? "Không thể xử lý nội dung.",
+        error: result.error ?? "Unable to process content.",
       };
     } catch {
-      return { success: false, error: "Không thể kết nối đến server." };
+      return { success: false, error: "Unable to connect to server." };
     }
   }
 
   const account = ACCOUNTS[parsed.data.password];
   if (!account) {
-    return { success: false, error: "Xác thực không hợp lệ." };
+    return { success: false, error: "Invalid authentication." };
   }
   if (account.type !== "premium") {
     return {
       success: false,
-      error: "Chức năng chỉ dành cho tài khoản Premium.",
+      error: "This feature is only available for Premium accounts.",
     };
   }
 
-  // TODO: Tích hợp dịch vụ dịch nội dung thực tế tại đây.
+  // TODO: Integrate actual translation service here.
   const translatedContent = parsed.data.content
     .split("\n")
     .map((line) => `[Translated] ${line}`)
@@ -249,7 +249,7 @@ export async function sendEmail(data: {
   const parsed = sendSchema.safeParse(data);
 
   if (!parsed.success) {
-    return { success: false, error: "Dữ liệu không hợp lệ." };
+    return { success: false, error: "Invalid data." };
   }
 
   if (API_BASE_URL) {
@@ -261,7 +261,7 @@ export async function sendEmail(data: {
       });
 
       if (!res.ok) {
-        return { success: false, error: "Lỗi kết nối đến server." };
+        return { success: false, error: "Server connection error." };
       }
 
       const result = await res.json();
@@ -279,15 +279,15 @@ export async function sendEmail(data: {
         };
       }
 
-      return { success: false, error: result.error ?? "Không thể gửi email." };
+      return { success: false, error: result.error ?? "Unable to send email." };
     } catch {
-      return { success: false, error: "Không thể kết nối đến server." };
+      return { success: false, error: "Unable to connect to server." };
     }
   }
 
   const account = ACCOUNTS[parsed.data.password];
   if (!account) {
-    return { success: false, error: "Xác thực không hợp lệ." };
+    return { success: false, error: "Invalid authentication." };
   }
 
   return {
