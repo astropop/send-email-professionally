@@ -130,7 +130,6 @@ export async function authenticatePassword(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: parsed.data.password }),
       });
-      console.log("auth", res);
       if (!res.ok) {
         return { success: false, error: "Lỗi kết nối đến server." };
       }

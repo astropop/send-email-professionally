@@ -144,7 +144,7 @@ export default function EmailForm() {
   const [account, setAccount] = useState<AuthedAccount | null>(null);
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [sent, setSent] = useState<SentData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const passwordForm = useForm<PasswordValues>({
@@ -168,28 +168,31 @@ export default function EmailForm() {
 
   // ─── Xác thực mật khẩu ───────────────────────────────────────────────────
 
-  const onPasswordSubmit = async (values: PasswordValues) => {
-    setIsLoading(true);
+  const onPwdSubmit = async (values: PasswordValues) => {
     setApiError(null);
     const result = await authenticatePassword(values.password);
     if (!result.success) {
-      passwordForm.setError("password", { message: result.error });
-    } else {
-      setAccount({
-        password: values.password,
-        name: result.name,
-        email: result.email,
-        type: result.type,
+      passwordForm.setError("password", {
+        message:
+          result.error === "1"
+            ? "Mật khẩu không đúng. Vui lòng thử lại."
+            : result.error,
       });
+      return;
     }
-    setIsLoading(false);
+    setAccount({
+      password: values.password,
+      name: result.name,
+      email: result.email,
+      type: result.type,
+    });
+    setShowPassword(false);
   };
 
   // ─── Submit email form ────────────────────────────────────────────────────
 
   const onEmailSubmit = async (values: EmailValues) => {
     if (!account) return;
-    setIsLoading(true);
     setApiError(null);
 
     if (account.type === "premium") {
@@ -202,16 +205,20 @@ export default function EmailForm() {
         targetlanguage: values.language,
       });
       if (!result.success) {
-        setApiError(result.error);
-      } else {
-        setPreview({
-          password: account.password,
-          receiverEmail: values.receiverEmail,
-          subject: result.subject,
-          content: result.content,
-          targetlanguage: values.language,
-        });
+        setApiError(
+          result.error === "11"
+            ? "Nội dung xem trước không lấy được. Vui lòng thử lại."
+            : result.error,
+        );
+        return;
       }
+      setPreview({
+        password: account.password,
+        receiverEmail: values.receiverEmail,
+        subject: result.subject,
+        content: result.content,
+        targetlanguage: values.language,
+      });
     } else {
       // Free: gửi thẳng
       const result = await sendEmail({
@@ -222,32 +229,13 @@ export default function EmailForm() {
         targetlanguage: values.language,
       });
       if (!result.success) {
-        setApiError(result.error);
-      } else {
-        setSent({
-          status: result.status,
-          sender: result.sender,
-          senderEmail: result.senderEmail,
-          receiverEmail: result.receiverEmail,
-          subject: result.subject,
-          content: result.content,
-          targetLanguage: result.targetLanguage,
-        });
+        setApiError(
+          result.error === "11"
+            ? "Gửi email không thành công. Vui lòng thử lại."
+            : result.error,
+        );
+        return;
       }
-    }
-    setIsLoading(false);
-  };
-
-  // ─── Xác nhận gửi (premium) ──────────────────────────────────────────────
-
-  const handleConfirmSend = async () => {
-    if (!preview) return;
-    setIsLoading(true);
-    setApiError(null);
-    const result = await sendEmail(preview);
-    if (!result.success) {
-      setApiError(result.error);
-    } else {
       setSent({
         status: result.status,
         sender: result.sender,
@@ -257,9 +245,33 @@ export default function EmailForm() {
         content: result.content,
         targetLanguage: result.targetLanguage,
       });
-      setPreview(null);
     }
-    setIsLoading(false);
+  };
+
+  // ─── Xác nhận gửi (premium) ──────────────────────────────────────────────
+
+  const handleConfirmSend = async () => {
+    if (!preview) return;
+    setApiError(null);
+    const result = await sendEmail(preview);
+    if (!result.success) {
+      setApiError(
+        result.error === "11"
+          ? "Gửi email không thành công. Vui lòng thử lại."
+          : result.error,
+      );
+      return;
+    }
+    setSent({
+      status: result.status,
+      sender: result.sender,
+      senderEmail: result.senderEmail,
+      receiverEmail: result.receiverEmail,
+      subject: result.subject,
+      content: result.content,
+      targetLanguage: result.targetLanguage,
+    });
+    setPreview(null);
   };
 
   const handleReset = () => {
@@ -272,6 +284,13 @@ export default function EmailForm() {
     emailForm.reset();
   };
 
+  const handleResend = () => {
+    setPreview(null);
+    setSent(null);
+    setApiError(null);
+    setShowPassword(false);
+    emailForm.reset();
+  };
   // ─── Màn hình đã gửi ─────────────────────────────────────────────────────
 
   if (sent) {
@@ -316,7 +335,7 @@ export default function EmailForm() {
             <Button
               variant='outline'
               className='w-full gap-2'
-              onClick={handleReset}
+              onClick={handleResend}
             >
               <RotateCcw className='h-4 w-4' />
               Gửi email khác
@@ -344,7 +363,7 @@ export default function EmailForm() {
             </CardDescription>
           </CardHeader>
           <Form {...passwordForm}>
-            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>
+            <form onSubmit={passwordForm.handleSubmit(onPwdSubmit)}>
               <CardContent className='space-y-3'>
                 <FormField
                   control={passwordForm.control}
@@ -387,7 +406,12 @@ export default function EmailForm() {
                         </div>
                         <Button
                           type='submit'
-                          disabled={isUnlocked || !watchedPassword || isLoading}
+                          disabled={
+                            isUnlocked ||
+                            !watchedPassword ||
+                            passwordForm.formState.isSubmitting ||
+                            passwordForm.formState.isLoading
+                          }
                           className='shrink-0 gap-1.5'
                         >
                           {isUnlocked ? (
@@ -395,7 +419,8 @@ export default function EmailForm() {
                               <CheckCircle className='h-4 w-4' />
                               Đã xác thực
                             </>
-                          ) : isLoading ? (
+                          ) : passwordForm.formState.isSubmitting ||
+                            passwordForm.formState.isLoading ? (
                             "Đang kiểm tra..."
                           ) : (
                             <>
@@ -557,11 +582,16 @@ export default function EmailForm() {
                 </Button>
                 <Button
                   type='submit'
-                  disabled={!isUnlocked || isLoading}
+                  disabled={
+                    !isUnlocked ||
+                    emailForm.formState.isSubmitting ||
+                    emailForm.formState.isLoading
+                  }
                   className='flex-1 gap-2'
                 >
                   <Send className='h-4 w-4' />
-                  {isLoading
+                  {emailForm.formState.isSubmitting ||
+                  emailForm.formState.isLoading
                     ? "Đang xử lý..."
                     : account?.type === "premium"
                       ? "Xem trước"
@@ -609,11 +639,17 @@ export default function EmailForm() {
             <CardFooter className='mt-2'>
               <Button
                 className='w-full gap-2'
-                disabled={isLoading}
+                disabled={
+                  emailForm.formState.isSubmitting ||
+                  emailForm.formState.isLoading
+                }
                 onClick={handleConfirmSend}
               >
                 <Send className='h-4 w-4' />
-                {isLoading ? "Đang gửi..." : "Xác nhận gửi"}
+                {emailForm.formState.isSubmitting ||
+                emailForm.formState.isLoading
+                  ? "Đang gửi..."
+                  : "Xác nhận gửi"}
               </Button>
             </CardFooter>
           </Card>
