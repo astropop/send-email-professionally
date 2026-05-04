@@ -2,20 +2,14 @@
 
 import { z } from "zod";
 
-// ─── API Configuration ────────────────────────────────────────────────────────
-// Thay đổi domain tại đây để gửi request đến server khác
-// Để trống hoặc "/" nếu gửi request đến cùng server (internal)
-
 const API_BASE_URL = process.env.API_BASE_URL ?? "";
 
-// Các endpoint — chỉ cần sửa tại đây để thay đổi đường dẫn
 const ENDPOINTS = {
   auth: "/api/auth",
   preview: "/api/email/preview",
   send: "/api/email/send",
 } as const;
 
-// Helper để tạo full URL
 function getEndpointUrl(endpoint: keyof typeof ENDPOINTS): string {
   return `${API_BASE_URL}${ENDPOINTS[endpoint]}`;
 }
@@ -30,9 +24,6 @@ export interface AccountConfig {
   type: UserType;
 }
 
-// ─── Config: thêm / sửa tài khoản tại đây ────────────────────────────────────
-// Value chứa name, email và loại tài khoản
-
 const ACCOUNTS: Record<string, AccountConfig> = {
   "free@12026": {
     name: "Free user",
@@ -44,9 +35,6 @@ const ACCOUNTS: Record<string, AccountConfig> = {
     email: "pre1@gmail.com",
     type: "premium",
   },
-  // Thêm tài khoản mới tại đây, ví dụ:
-  // admin456: { name: "Admin 2", email: "admin2@abc.com", type: "premium" },
-  // user789:  { name: "User 2",  email: "user2@abc.com",  type: "free"    },
 };
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -123,8 +111,6 @@ export type SendResponse = SendSuccessResponse | SendErrorResponse;
 
 // ─── Server Action: Xác thực mật khẩu ─────────────────────────────────────────
 // POST /api/auth
-// Request:  { "password": "free@32026" }
-// Response: { "name": "Lukas Le", "email": "lehoangthach211191@gmail.com", "type": "free" }
 
 export async function authenticatePassword(
   password: string,
@@ -144,7 +130,7 @@ export async function authenticatePassword(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: parsed.data.password }),
       });
-
+      console.log("auth", res);
       if (!res.ok) {
         return { success: false, error: "Lỗi kết nối đến server." };
       }
@@ -182,10 +168,7 @@ export async function authenticatePassword(
   };
 }
 
-// ─── Server Action: Xem trước email (Premium) ─────────────────────────────────
 // POST /api/email/preview
-// Request:  { password, receiverEmail, subject, content, targetlanguage }
-// Response: { subject, content }
 
 export async function previewEmail(data: {
   password: string;
@@ -255,11 +238,7 @@ export async function previewEmail(data: {
   };
 }
 
-// ─── Server Action: Gửi email ─────────────────────────────────────────────────
-// Dùng cho: user "free" khi ấn "Gửi email", hoặc user "premium" sau khi xác nhận
 // POST /api/email/send
-// Request:  { password, receiverEmail, subject, content, targetlanguage }
-// Response: { status, sender, senderEmail, receiverEmail, subject, content, targetLanguage }
 
 export async function sendEmail(data: {
   password: string;
@@ -311,8 +290,6 @@ export async function sendEmail(data: {
   if (!account) {
     return { success: false, error: "Xác thực không hợp lệ." };
   }
-
-  // TODO: Tích hợp dịch vụ gửi email thực tế (SendGrid, Resend, Nodemailer…) tại đây.
 
   return {
     success: true,
