@@ -762,6 +762,15 @@ export default function EmailForm() {
             <UsageGuide />
           </div>
         </div>
+
+        {/* Footer Credit */}
+        <footer className="border-t border-neutral-200 bg-neutral-50 mt-12 py-6">
+          <div className="container mx-auto px-4">
+            <div className="text-center text-sm text-neutral-600">
+              <p>Presented by +84 Team, Flinders University</p>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
