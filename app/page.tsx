@@ -75,17 +75,17 @@ const passwordSchema = z.object({
 const emailSchema = z.object({
   receiverEmail: z
     .string()
-    .min(1, "Please enter recipient email.")
-    .email("Invalid recipient email."),
-  language: z.string().min(1, "Please select a language."),
+    .min(1, "Please enter recipient email")
+    .email("Invalid recipient email"),
+  language: z.string().min(1, "Please select a language"),
   subject: z
     .string()
     .min(1, "Please enter email subject.")
-    .max(200, "Subject must not exceed 200 characters."),
+    .max(200, "Subject must not exceed 200 characters"),
   content: z
     .string()
-    .min(1, "Please enter email content.")
-    .max(5000, "Content must not exceed 5000 characters."),
+    .min(1, "Please enter email content")
+    .max(5000, "Content must not exceed 5000 characters"),
 });
 
 type PasswordValues = z.infer<typeof passwordSchema>;
@@ -625,7 +625,11 @@ export default function EmailForm() {
                             onValueChange={field.onChange}
                             disabled={!isUnlocked}
                           >
-                            <SelectTrigger className='w-full'>
+                            <SelectTrigger
+                              className='w-full'
+                              aria-invalid={fieldState.invalid}
+                              id='frm-language-title'
+                            >
                               <SelectValue placeholder='Select language...' />
                             </SelectTrigger>
                             <SelectContent>
