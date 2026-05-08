@@ -42,13 +42,13 @@ const ACCOUNTS: Record<string, AccountConfig> = {
 const authSchema = z.object({
   password: z
     .string()
-    .min(1, "Please enter your password.")
+    .min(1, "Please enter your password")
     .regex(/^(free|pre)/, "Invalid password format"),
 });
 
 const previewSchema = z.object({
   password: z.string().min(1),
-  receiverEmail: z.string().email(),
+  receiverEmail: z.string().email().min(1),
   subject: z.string().min(1),
   content: z.string().min(1),
   targetlanguage: z.string().min(1),
@@ -56,7 +56,7 @@ const previewSchema = z.object({
 
 const sendSchema = z.object({
   password: z.string().min(1),
-  receiverEmail: z.string().email(),
+  receiverEmail: z.string().email().min(1),
   subject: z.string().min(1),
   content: z.string().min(1),
   targetlanguage: z.string().min(1),
@@ -113,13 +113,12 @@ export type SendResponse = SendSuccessResponse | SendErrorResponse;
 // POST /api/auth
 
 export async function authenticatePassword(
-  password: string
+  password: string,
 ): Promise<AuthResponse> {
   const parsed = authSchema.safeParse({ password });
 
   if (!parsed.success) {
-    const errorMsg =
-      parsed.error.errors[0]?.message ?? "Invalid password.";
+    const errorMsg = parsed.error.errors[0]?.message ?? "Invalid password.";
     return { success: false, error: errorMsg };
   }
 
