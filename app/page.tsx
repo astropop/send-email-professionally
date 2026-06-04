@@ -105,7 +105,7 @@ interface PreviewData {
   receiverEmail: string;
   subject: string;
   content: string;
-  targetlanguage: string;
+  targetLanguage: string;
 }
 
 interface SentData {
@@ -267,7 +267,7 @@ export default function EmailForm() {
         receiverEmail: values.receiverEmail,
         subject: values.subject,
         content: values.content,
-        targetlanguage: values.language,
+        targetLanguage: values.language,
       });
       if (!result.success) {
         setApiError(
@@ -282,7 +282,7 @@ export default function EmailForm() {
         receiverEmail: values.receiverEmail,
         subject: result.subject,
         content: result.content,
-        targetlanguage: values.language,
+        targetLanguage: values.language,
       });
     } else {
       const result = await sendEmail({
@@ -290,7 +290,7 @@ export default function EmailForm() {
         receiverEmail: values.receiverEmail,
         subject: values.subject,
         content: values.content,
-        targetlanguage: values.language,
+        targetLanguage: values.language,
       });
       if (!result.success) {
         setApiError(
@@ -762,8 +762,8 @@ export default function EmailForm() {
                   <InfoRow
                     label='Language'
                     value={
-                      LANGUAGES.find((l) => l.value === preview.targetlanguage)
-                        ?.label ?? preview.targetlanguage
+                      LANGUAGES.find((l) => l.value === preview.targetLanguage)
+                        ?.label ?? preview.targetLanguage
                     }
                   />
                   <div className='flex flex-col gap-1'>

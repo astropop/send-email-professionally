@@ -51,7 +51,7 @@ const previewSchema = z.object({
   receiverEmail: z.string().email().min(1),
   subject: z.string().min(1),
   content: z.string().min(1),
-  targetlanguage: z.string().min(1),
+  targetLanguage: z.string().min(1),
 });
 
 const sendSchema = z.object({
@@ -59,7 +59,7 @@ const sendSchema = z.object({
   receiverEmail: z.string().email().min(1),
   subject: z.string().min(1),
   content: z.string().min(1),
-  targetlanguage: z.string().min(1),
+  targetLanguage: z.string().min(1),
 });
 
 // ─── Response types ───────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ export async function previewEmail(data: {
   receiverEmail: string;
   subject: string;
   content: string;
-  targetlanguage: string;
+  targetLanguage: string;
 }): Promise<PreviewResponse> {
   const parsed = previewSchema.safeParse(data);
 
@@ -243,7 +243,7 @@ export async function sendEmail(data: {
   receiverEmail: string;
   subject: string;
   content: string;
-  targetlanguage: string;
+  targetLanguage: string;
 }): Promise<SendResponse> {
   const parsed = sendSchema.safeParse(data);
 
@@ -297,6 +297,6 @@ export async function sendEmail(data: {
     receiverEmail: parsed.data.receiverEmail,
     subject: parsed.data.subject,
     content: parsed.data.content,
-    targetLanguage: parsed.data.targetlanguage,
+    targetLanguage: parsed.data.targetLanguage,
   };
 }
