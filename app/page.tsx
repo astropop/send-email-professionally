@@ -49,6 +49,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { useGoogleReCaptcha } from "@google-recaptcha/react";
 
 // ─── Language list ────────────────────────────────────────────────────────────
 
@@ -212,6 +213,7 @@ export default function EmailForm() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [sent, setSent] = useState<SentData | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const googleReCaptcha = useGoogleReCaptcha();
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -236,6 +238,11 @@ export default function EmailForm() {
 
   const onPwdSubmit = async (values: PasswordValues) => {
     setApiError(null);
+    if (!googleReCaptcha.executeV2Invisible) {
+      console.log("Recaptcha not available");
+      return;
+    }
+    const token = await googleReCaptcha.executeV2Invisible();
     const result = await authenticatePassword(values.password);
     if (!result.success) {
       passwordForm.setError("password", {
