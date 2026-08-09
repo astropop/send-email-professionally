@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google-recaptcha/react": "^2.5.3",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-label": "2.1.8",
     "@radix-ui/react-select": "2.2.6",
