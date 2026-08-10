@@ -37,7 +37,7 @@ export default function RootLayout({
 }>) {
   const scriptSrc = generateGoogleReCaptchaScriptSrc({
     isEnterprise: false,
-    render: `${process.env.G_PUBLIC_RECAPTCHA_SITE_KEY!}`,
+    render: `${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}`,
     hl: "en",
   });
 

@@ -41,7 +41,6 @@ import {
   authenticatePassword,
   previewEmail,
   sendEmail,
-  verifyCaptcha,
   type UserType,
 } from "@/app/actions";
 import {
@@ -244,9 +243,6 @@ export default function EmailForm() {
       return;
     }
     const token = await googleReCaptcha.executeV2Invisible();
-
-    console.log(token);
-    // await verifyCaptcha(token);
     const result = await authenticatePassword(values.password);
     if (!result.success) {
       passwordForm.setError("password", {
