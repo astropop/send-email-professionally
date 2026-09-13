@@ -49,7 +49,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { useGoogleReCaptcha } from "@google-recaptcha/react";
 
 // ─── Language list ────────────────────────────────────────────────────────────
 
@@ -137,13 +136,13 @@ function InfoRow({
           multiline ? "flex flex-col gap-1" : "flex justify-between gap-4"
         }
       >
-        <span className='text-muted-foreground shrink-0'>{label}</span>
+        <span className="text-muted-foreground shrink-0">{label}</span>
         {multiline ? (
-          <p className='text-foreground whitespace-pre-wrap break-words'>
+          <p className="text-foreground whitespace-pre-wrap break-words">
             {value}
           </p>
         ) : (
-          <span className='font-medium text-right truncate'>{value}</span>
+          <span className="font-medium text-right truncate">{value}</span>
         )}
       </div>
       <Separator />
@@ -155,33 +154,33 @@ function InfoRow({
 
 function UsageGuide() {
   return (
-    <Card className='sticky top-6'>
-      <CardHeader className='pb-3'>
-        <CardTitle className='flex items-center gap-2 text-base'>
-          <HelpCircle className='h-4 w-4' />
+    <Card className="sticky top-6">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <HelpCircle className="h-4 w-4" />
           How to Use
         </CardTitle>
       </CardHeader>
-      <CardContent className='space-y-4 text-sm'>
+      <CardContent className="space-y-4 text-sm">
         <div>
-          <h4 className='font-medium mb-1'>1. Authenticate</h4>
-          <p className='text-muted-foreground'>
+          <h4 className="font-medium mb-1">1. Authenticate</h4>
+          <p className="text-muted-foreground">
             Enter your password to verify your sender identity. Your email
             address will be automatically assigned based on your credentials.
           </p>
         </div>
         <Separator />
         <div>
-          <h4 className='font-medium mb-1'>2. Compose Email</h4>
-          <p className='text-muted-foreground'>
+          <h4 className="font-medium mb-1">2. Compose Email</h4>
+          <p className="text-muted-foreground">
             Fill in recipient email, select target language, enter subject and
             content. AI will help beautify your email.
           </p>
         </div>
         <Separator />
         <div>
-          <h4 className='font-medium mb-1'>3. Preview & Send</h4>
-          <p className='text-muted-foreground'>
+          <h4 className="font-medium mb-1">3. Preview & Send</h4>
+          <p className="text-muted-foreground">
             <strong>Premium users:</strong> Preview AI-enhanced content before
             sending.
             <br />
@@ -189,12 +188,12 @@ function UsageGuide() {
           </p>
         </div>
         <Separator />
-        <div className='rounded-md bg-muted/50 p-3'>
-          <h4 className='font-medium mb-1 flex items-center gap-1.5'>
-            <Sparkles className='h-3.5 w-3.5 text-primary' />
+        <div className="rounded-md bg-muted/50 p-3">
+          <h4 className="font-medium mb-1 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
             AI Features
           </h4>
-          <ul className='text-muted-foreground space-y-1 list-disc list-inside'>
+          <ul className="text-muted-foreground space-y-1 list-disc list-inside">
             <li>Auto-translate to selected language</li>
             <li>Professional email formatting</li>
             <li>Grammar and tone improvement</li>
@@ -213,7 +212,6 @@ export default function EmailForm() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [sent, setSent] = useState<SentData | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
-  const googleReCaptcha = useGoogleReCaptcha();
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -238,11 +236,8 @@ export default function EmailForm() {
 
   const onPwdSubmit = async (values: PasswordValues) => {
     setApiError(null);
-    if (!googleReCaptcha.executeV2Invisible) {
-      console.log("Recaptcha not available");
-      return;
-    }
-    const token = await googleReCaptcha.executeV2Invisible();
+
+    // Authenticate password
     const result = await authenticatePassword(values.password);
     if (!result.success) {
       passwordForm.setError("password", {
@@ -367,60 +362,60 @@ export default function EmailForm() {
 
   if (sent) {
     return (
-      <div className='min-h-screen flex flex-col'>
+      <div className="min-h-screen flex flex-col">
         {/* Banner */}
-        <header className='border-b bg-card'>
-          <div className='container mx-auto px-4 py-3 flex items-center justify-center gap-2'>
-            <Sparkles className='h-5 w-5 text-primary' />
-            <span className='font-semibold text-lg'>
+        <header className="border-b bg-card">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-lg">
               Emaily = Email + Beautify + AI
             </span>
           </div>
         </header>
 
-        <main className='flex-1 flex items-center justify-center p-6'>
-          <Card className='w-full max-w-lg'>
-            <CardHeader className='text-center'>
-              <div className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10'>
-                <Send className='h-6 w-6 text-primary' />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <Send className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className='text-2xl'>Email Sent!</CardTitle>
+              <CardTitle className="text-2xl">Email Sent!</CardTitle>
               <CardDescription>
                 Email to{" "}
-                <span className='font-medium text-foreground'>
+                <span className="font-medium text-foreground">
                   {sent.receiverEmail}
                 </span>{" "}
                 was sent successfully.
               </CardDescription>
             </CardHeader>
-            <CardContent className='space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm'>
+            <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
               <InfoRow
-                label='Sender'
+                label="Sender"
                 value={`${sent.sender} <${sent.senderEmail}>`}
               />
-              <InfoRow label='Recipient' value={sent.receiverEmail} />
-              <InfoRow label='Subject' value={sent.subject} />
+              <InfoRow label="Recipient" value={sent.receiverEmail} />
+              <InfoRow label="Subject" value={sent.subject} />
               <InfoRow
-                label='Language'
+                label="Language"
                 value={
                   LANGUAGES.find((l) => l.value === sent.targetLanguage)
                     ?.label ?? sent.targetLanguage
                 }
               />
-              <div className='flex flex-col gap-1'>
-                <span className='text-muted-foreground'>Content</span>
-                <p className='text-foreground whitespace-pre-wrap break-words'>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Content</span>
+                <p className="text-foreground whitespace-pre-wrap break-words">
                   {sent.content}
                 </p>
               </div>
             </CardContent>
-            <CardFooter className='mt-2'>
+            <CardFooter className="mt-2">
               <Button
-                variant='outline'
-                className='w-full gap-2'
+                variant="outline"
+                className="w-full gap-2"
                 onClick={handleResend}
               >
-                <RotateCcw className='h-4 w-4' />
+                <RotateCcw className="h-4 w-4" />
                 Send Another Email
               </Button>
             </CardFooter>
@@ -433,18 +428,18 @@ export default function EmailForm() {
   // ─── Main Form ────────────────────────────────────────────────────────────
 
   return (
-    <div className='min-h-screen flex flex-col'>
+    <div className="min-h-screen flex flex-col">
       {/* Banner */}
-      <header className='border-b bg-card'>
-        <div className='container mx-auto px-4 py-4'>
-          <div className='flex flex-col items-center text-center gap-1'>
-            <div className='flex items-center gap-2'>
-              <Sparkles className='h-5 w-5 text-primary' />
-              <span className='font-semibold text-xl tracking-tight'>
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col items-center text-center gap-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-xl tracking-tight">
                 Emaily = Email + Beautify + AI
               </span>
             </div>
-            <p className='text-sm text-muted-foreground max-w-md'>
+            <p className="text-sm text-muted-foreground max-w-md">
               Transform your casual messages into professional, polished emails
               with AI-powered translation and formatting.
             </p>
@@ -453,47 +448,47 @@ export default function EmailForm() {
       </header>
 
       {/* Main content */}
-      <main className='flex-1 container mx-auto px-4 py-6'>
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+      <main className="flex-1 container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Forms */}
-          <div className='lg:col-span-2 space-y-4'>
+          <div className="lg:col-span-2 space-y-4">
             {/* Card 1: Password Authentication */}
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2 text-base'>
-                  <Lock className='h-4 w-4' />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Lock className="h-4 w-4" />
                   Password Authentication
                 </CardTitle>
                 <CardDescription>
                   Enter your password to identify your sender email.
                 </CardDescription>
               </CardHeader>
-              <CardContent className='space-y-3'>
+              <CardContent className="space-y-3">
                 <form
-                  id='frm-password'
+                  id="frm-password"
                   onSubmit={passwordForm.handleSubmit(onPwdSubmit)}
                 >
                   <FieldGroup>
                     <Controller
-                      name='password'
+                      name="password"
                       control={passwordForm.control}
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor='frm-pwd-title'>
+                          <FieldLabel htmlFor="frm-pwd-title">
                             Password
                           </FieldLabel>
-                          <div className='flex gap-2'>
-                            <div className='relative flex-1'>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
                               <div>
                                 <Input
                                   {...field}
-                                  id='frm-pwd-title'
+                                  id="frm-pwd-title"
                                   aria-invalid={fieldState.invalid}
-                                  autoComplete='off'
+                                  autoComplete="off"
                                   type={showPassword ? "text" : "password"}
-                                  placeholder='Enter password...'
+                                  placeholder="Enter password..."
                                   disabled={isUnlocked}
-                                  className='pr-10'
+                                  className="pr-10"
                                   onChange={(e) => {
                                     field.onChange(e);
                                     if (
@@ -508,10 +503,10 @@ export default function EmailForm() {
                                 )}
                               </div>
                               <Button
-                                type='button'
+                                type="button"
                                 onClick={() => setShowPassword((v) => !v)}
                                 disabled={isUnlocked}
-                                className='absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-40 bg-transparent hover:bg-transparent'
+                                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-40 bg-transparent hover:bg-transparent"
                                 aria-label={
                                   showPassword
                                     ? "Hide password"
@@ -519,25 +514,25 @@ export default function EmailForm() {
                                 }
                               >
                                 {showPassword ? (
-                                  <EyeOff className='h-4 w-4' />
+                                  <EyeOff className="h-4 w-4" />
                                 ) : (
-                                  <Eye className='h-4 w-4' />
+                                  <Eye className="h-4 w-4" />
                                 )}
                               </Button>
                             </div>
                             <Button
-                              type='submit'
+                              type="submit"
                               disabled={
                                 isUnlocked ||
                                 !watchedPassword ||
                                 passwordForm.formState.isSubmitting ||
                                 passwordForm.formState.isLoading
                               }
-                              className='shrink-0 gap-1.5'
+                              className="shrink-0 gap-1.5"
                             >
                               {isUnlocked ? (
                                 <>
-                                  <CheckCircle className='h-4 w-4' />
+                                  <CheckCircle className="h-4 w-4" />
                                   Verified
                                 </>
                               ) : passwordForm.formState.isSubmitting ||
@@ -545,7 +540,7 @@ export default function EmailForm() {
                                 "Verifying..."
                               ) : (
                                 <>
-                                  <Lock className='h-4 w-4' />
+                                  <Lock className="h-4 w-4" />
                                   Verify
                                 </>
                               )}
@@ -557,9 +552,9 @@ export default function EmailForm() {
                   </FieldGroup>
                 </form>
                 {isUnlocked && account && (
-                  <div className='flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm'>
-                    <span className='text-muted-foreground'>Sender Email</span>
-                    <div className='flex items-center gap-2'>
+                  <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Sender Email</span>
+                    <div className="flex items-center gap-2">
                       <Badge
                         variant={
                           account.type === "premium" ? "default" : "secondary"
@@ -567,7 +562,7 @@ export default function EmailForm() {
                       >
                         {account.type === "premium" ? "Premium" : "Free"}
                       </Badge>
-                      <span className='font-medium'>
+                      <span className="font-medium">
                         {account.name} &lt;{account.email}&gt;
                       </span>
                     </div>
@@ -579,7 +574,7 @@ export default function EmailForm() {
             {/* Card 2: Compose Email */}
             <Card>
               <CardHeader>
-                <CardTitle className='text-xl tracking-tight'>
+                <CardTitle className="text-xl tracking-tight">
                   Compose Email
                 </CardTitle>
                 <CardDescription>
@@ -590,27 +585,27 @@ export default function EmailForm() {
               </CardHeader>
               {/* <Form {...emailForm}> */}
               <form
-                id='frm-email'
+                id="frm-email"
                 onSubmit={emailForm.handleSubmit(onEmailSubmit)}
               >
-                <CardContent className='space-y-4'>
+                <CardContent className="space-y-4">
                   <FieldGroup>
                     <Controller
                       control={emailForm.control}
-                      name='receiverEmail'
+                      name="receiverEmail"
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor='frm-email-title'>
+                          <FieldLabel htmlFor="frm-email-title">
                             Recipient Email
                           </FieldLabel>
                           <Input
                             {...field}
-                            id='frm-email-title'
+                            id="frm-email-title"
                             aria-invalid={fieldState.invalid}
-                            type='email'
-                            placeholder='recipient@domain.com'
+                            type="email"
+                            placeholder="recipient@domain.com"
                             disabled={!isUnlocked}
-                            autoComplete='email'
+                            autoComplete="email"
                           />
                           {fieldState.invalid && (
                             <FieldError errors={[fieldState.error]} />
@@ -621,10 +616,10 @@ export default function EmailForm() {
 
                     <Controller
                       control={emailForm.control}
-                      name='language'
+                      name="language"
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor='frm-language-title'>
+                          <FieldLabel htmlFor="frm-language-title">
                             Target Language
                           </FieldLabel>
                           <Select
@@ -633,11 +628,11 @@ export default function EmailForm() {
                             disabled={!isUnlocked}
                           >
                             <SelectTrigger
-                              className='w-full'
+                              className="w-full"
                               aria-invalid={fieldState.invalid}
-                              id='frm-language-title'
+                              id="frm-language-title"
                             >
-                              <SelectValue placeholder='Select language...' />
+                              <SelectValue placeholder="Select language..." />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -661,18 +656,18 @@ export default function EmailForm() {
 
                     <Controller
                       control={emailForm.control}
-                      name='subject'
+                      name="subject"
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor='frm-subject-title'>
+                          <FieldLabel htmlFor="frm-subject-title">
                             Email Subject
                           </FieldLabel>
                           <Input
                             {...field}
-                            id='frm-subject-title'
+                            id="frm-subject-title"
                             aria-invalid={fieldState.invalid}
-                            type='text'
-                            placeholder='Enter email subject...'
+                            type="text"
+                            placeholder="Enter email subject..."
                             disabled={!isUnlocked}
                           />
                           {fieldState.invalid && (
@@ -684,26 +679,26 @@ export default function EmailForm() {
 
                     <Controller
                       control={emailForm.control}
-                      name='content'
+                      name="content"
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor='frm-content-title'>
+                          <FieldLabel htmlFor="frm-content-title">
                             Email Content
                           </FieldLabel>
                           <Textarea
                             {...field}
-                            id='frm-content-title'
+                            id="frm-content-title"
                             aria-invalid={fieldState.invalid}
-                            placeholder='Enter your email content here...'
+                            placeholder="Enter your email content here..."
                             rows={10}
                             disabled={!isUnlocked}
-                            className='resize-y'
+                            className="resize-y"
                           />
                           {fieldState.invalid && (
                             <FieldError errors={[fieldState.error]} />
                           )}
-                          <div className='flex justify-between items-center'>
-                            <span className='text-xs text-muted-foreground ml-auto'>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-muted-foreground ml-auto">
                               {watchedContent.length}/5000
                             </span>
                           </div>
@@ -713,30 +708,30 @@ export default function EmailForm() {
                   </FieldGroup>
 
                   {apiError && (
-                    <p className='text-sm text-destructive'>{apiError}</p>
+                    <p className="text-sm text-destructive">{apiError}</p>
                   )}
                 </CardContent>
 
-                <CardFooter className='flex gap-3'>
+                <CardFooter className="flex gap-3">
                   <Button
-                    type='button'
-                    variant='outline'
-                    className='flex-1 gap-2'
+                    type="button"
+                    variant="outline"
+                    className="flex-1 gap-2"
                     onClick={handleReset}
                   >
-                    <RotateCcw className='h-4 w-4' />
+                    <RotateCcw className="h-4 w-4" />
                     Clear All
                   </Button>
                   <Button
-                    type='submit'
+                    type="submit"
                     disabled={
                       !isUnlocked ||
                       emailForm.formState.isSubmitting ||
                       emailForm.formState.isLoading
                     }
-                    className='flex-1 gap-2'
+                    className="flex-1 gap-2"
                   >
-                    <Send className='h-4 w-4' />
+                    <Send className="h-4 w-4" />
                     {emailForm.formState.isSubmitting ||
                     emailForm.formState.isLoading
                       ? "Processing..."
@@ -753,50 +748,50 @@ export default function EmailForm() {
             {preview && (
               <Card>
                 <CardHeader>
-                  <div className='flex items-center justify-between'>
-                    <CardTitle className='text-base tracking-tight'>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base tracking-tight">
                       Email Preview
                     </CardTitle>
-                    <Badge variant='secondary'>Premium</Badge>
+                    <Badge variant="secondary">Premium</Badge>
                   </div>
                   <CardDescription>
                     Review the content before sending.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className='space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm'>
-                  <InfoRow label='Recipient' value={preview.receiverEmail} />
-                  <InfoRow label='Subject' value={preview.subject} />
+                <CardContent className="space-y-3 rounded-lg border bg-muted/50 mx-6 p-4 text-sm">
+                  <InfoRow label="Recipient" value={preview.receiverEmail} />
+                  <InfoRow label="Subject" value={preview.subject} />
                   <InfoRow
-                    label='Language'
+                    label="Language"
                     value={
                       LANGUAGES.find((l) => l.value === preview.targetLanguage)
                         ?.label ?? preview.targetLanguage
                     }
                   />
-                  <div className='flex flex-col gap-1'>
-                    <span className='text-muted-foreground'>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground">
                       Processed Content
                     </span>
-                    <p className='text-foreground whitespace-pre-wrap break-words'>
+                    <p className="text-foreground whitespace-pre-wrap break-words">
                       {preview.content}
                     </p>
                   </div>
                 </CardContent>
                 {apiError && (
-                  <p className='px-6 pt-2 text-sm text-destructive'>
+                  <p className="px-6 pt-2 text-sm text-destructive">
                     {apiError}
                   </p>
                 )}
-                <CardFooter className='mt-2'>
+                <CardFooter className="mt-2">
                   <Button
-                    className='w-full gap-2'
+                    className="w-full gap-2"
                     disabled={
                       emailForm.formState.isSubmitting ||
                       emailForm.formState.isLoading
                     }
                     onClick={handleConfirmSend}
                   >
-                    <Send className='h-4 w-4' />
+                    <Send className="h-4 w-4" />
                     {emailForm.formState.isSubmitting ||
                     emailForm.formState.isLoading
                       ? "Sending..."
@@ -808,21 +803,21 @@ export default function EmailForm() {
           </div>
 
           {/* Right: Usage Guide */}
-          <div className='hidden lg:block'>
+          <div className="hidden lg:block">
             <UsageGuide />
           </div>
         </div>
 
         {/* Footer Credit */}
-        <footer className='border-t border-border bg-muted/40 mt-12 py-6'>
-          <div className='container mx-auto px-4'>
-            <div className='flex flex-col items-center gap-3 text-sm text-muted-foreground'>
+        <footer className="border-t border-border bg-muted/40 mt-12 py-6">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
               <Image
-                src='/logo-team.png'
-                alt='+84 Team logo'
+                src="/logo-team.png"
+                alt="+84 Team logo"
                 width={48}
                 height={48}
-                className='rounded-full object-contain'
+                className="rounded-full object-contain"
               />
               <p>Presented by +84 Team, Flinders University</p>
             </div>
